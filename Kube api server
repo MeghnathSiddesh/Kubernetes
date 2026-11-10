@@ -1,0 +1,33 @@
+kube api server is the primary management component in kubernetes
+
+when you run kubectl command, it is reaching to the kubeapiserver
+the kubeapiserver first authnticate the request and validates it, then retreives data from etcd xluster and responds back with the requested info
+
+you dont need to use kubectl all the time, instaed you an also invoke its API, by sending a post request
+
+kubeapiserver is the only component that interact with etcd data store
+
+--
+if you creating cluster from scratch(manual) way
+then kubeapiserver is available as binary in kubernetes release page
+download it and configure it to run as a service on kubernetes master node
+
+kube-apiserver.service
+>kube-apiserver runs with lot of parameters, once you install it you will see it
+
+you can view the kubeapiserver service in 
+cat /etc/systemd/system/kube-apiserver.service
+whole apiserver configuration, its infra everything will be mentioned in this service file
+---
+if you bootstrap(create) your cluster using kubeadmin tool
+the apiserver will deployed as pods in kube system namespace on master node
+kubectl get pods -n kube-system
+
+the apiserver will be created as yaml file in
+cat /etc/kubernetes/manifests/kube-apiserver.yaml
+whole apiserver configuration, its infra everything will be mentioned in this yaml file
+
+----
+
+you can also see running process for kube-apiserver using
+ps -aux | grep kube-apiserver

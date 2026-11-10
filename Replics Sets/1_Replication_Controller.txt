@@ -1,0 +1,31 @@
+Controllers are brain behind kubernetes
+they are the process that monitor kubernetes objects and respond accordingly
+
+Replication Controller
+
+instaed of running single container, for fault tolerance and HA
+Replication Controller helps us run multiple instances of a single pod in the kubernetes cluster(on the same node or on diff node)
+provides HA
+
+Replication controller helps dynamic scaling, when exisiting pod fails, it brings up new pod
+this will help kubernetes, even if you maintain one pod, it will helps in bringing up new when current one fails
+
+thus Replication controller ensure that the sepcified no of pods are running at all times even if it is just 1 or 100.
+
+replication controller spans multiple instances of the pod across the cluster(same node or diff node of same cluster)
+
+the replication controller is the auto scaling group kind of
+it replicates or creates new pod based on the desired no of pods you mention in the yaml configuration file
+it will always try to bring the no of pods to desired no dynamically
+
+---------
+
+ReplicaSet
+
+ReplicaSet is exactly same thing as Replication controller, does same work
+but ReplicaSet is slightly diff, it adds an extra feature than Replication controller
+so it replaces the Replication controller
+
+ReplicaSet is new recommended way to setup replication
+
+-------

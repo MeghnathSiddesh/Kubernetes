@@ -1,0 +1,28 @@
+kubernetes schedular is respnsible for scheduling pods and nodes
+
+schedular is only responsible for deciding which pod goes on which node
+it doesnt actually place the pod on node
+thats actually done by kubelet(located in the worker node)
+
+
+schedular is only responsible for deciding which pod goes on which node depending on criteria
+how does scheduler assign these pods
+
+schduler looks at each pod and find the best node for it
+for ex: a pod needs 10cpu
+it looks at each node and calculate no of cpus available, the depoloys the podthe cpu with highest available cpu or with some algo
+
+kube_schedular setup
+
+download kube_schedular from kubernetes release page
+extract it and run it as a service
+cat /etc/systemd/system/kube-schedular.service
+
+kubeadm tool
+it depoloys kube_schedular as a pod 
+you can view it in 
+cat /etc/kubernetes/manifests/kube-schedular.yaml
+
+to see running process for kube_schedular
+
+ps -aux | grep kube-schedular

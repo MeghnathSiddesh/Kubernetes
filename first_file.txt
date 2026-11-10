@@ -1,0 +1,42 @@
+
+dockerd vs containerd
+
+• dockerd (The Manager): The full-featured Docker Daemon designed for human developers. It handles the high-level tasks like building images (docker build), user authentication, managing networks, and providing the user-friendly CLI experience.
+• containerd (The Worker): A lightweight, stripped-down container runtime engine. It doesn't care about developer tools; it focuses strictly on executing container processes, pulling images, and managing storage layers. dockerd actually uses containerd under the hood.
+
+
+Why Kubernetes Dropped dockerd for containerd
+
+In the past, Kubernetes used Docker (dockerd) to run containers. However, in recent versions, Kubernetes officially deprecated and removed support for Docker, choosing to interact directly with containerd instead. Here are the core reasons why:
+
+1. Eliminating the "Docker Shim" Overhead
+
+Kubernetes communicates with container runtimes using a standardized protocol called the Container Runtime Interface (CRI).
+• containerd natively understands CRI.
+• dockerd does not understand CRI.
+To make Kubernetes work with Docker, Kubernetes had to maintain a clumsy, temporary translation bridge called the Dockershim. The communication path was long and inefficient:
+Kubernetes -> Dockershim -> dockerd -> containerd -> runc.
+By cutting out dockerd and the Dockershim, Kubernetes now talks directly: Kubernetes -> containerd -> runc. This drastically reduces CPU and memory overhead.
+
+2. Removing "Bloat" (Unused Features)
+
+dockerd is packed with developer-facing features like local bridge networking, volume plugins, swarm mode, and image-building capabilities. Kubernetes doesn't use any of these because it has its own, much more powerful ways of handling networking, volumes, and orchestration across multiple servers. Running dockerd inside a Kubernetes cluster meant wasting system resources on features that were completely ignored.
+
+3. Better Stability and Faster Boot Times
+
+Because containerd is modular, scoped entirely to container execution, and lacks the heavy developer tooling of dockerd, it is incredibly stable. Upgrading or restarting Kubernetes infrastructure components becomes significantly safer, and node startup/pod creation times are noticeably faster.
+
++-------------------------------------------------------+
+
+|  High-Level Orchestration (Docker CLI, Kubernetes)    |
++-------------------------------------------------------+
+                           ↓
++-------------------------------------------------------+
+
+|  Container Runtime Daemon (containerd)                |  <-- Manages images, lifecycles, and API
++-------------------------------------------------------+
+                           ↓
++-------------------------------------------------------+
+
+|  Low-Level OCI Runtime (runc)                         |  <-- Interacts with Linux Kernel (Namespaces/cgroups)
+

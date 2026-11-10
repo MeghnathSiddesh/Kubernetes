@@ -1,0 +1,21 @@
+The Kubernetes API is the core HTTP-based interface that lets you query and change the state of objects in a Kubernetes cluster. Exposed by the kube-apiserver component in the control plane, it acts as the central communication hub for end users, internal cluster components, and external tools.
+
+How It Works
+
+• Central Control Point. Every operation inside a cluster goes through the Kubernetes API Server. It is the only component that communicates directly with etcd, the cluster's database.
+• RESTful Architecture. The API uses standard HTTP verbs like GET, POST, PUT, PATCH, and DELETE to manage resources. By default, it exchanges data in JSON format, though it also supports YAML and binary Protobuf.
+• Declarative Management. Instead of giving step-by-step instructions, you send a desired state to the API. Kubernetes controllers watch the API and work to match the cluster's actual state to your request.
+• Request Pipeline. Before saving any changes, the server runs every incoming request through authentication, Role-Based Access Control (RBAC) authorization, and admission controllers to enforce security and schema rules.
+
+API Organization
+
+To keep the system organized and easy to extend, resources are structured into groups and versions.
+• Core Group. Contains foundational objects like Pods, Services, and Namespaces. These are accessed under the /api/v1 path.
+• Named Groups. Organizes newer or specialized features into categories like apps for Deployments and batch for CronJobs. These live under /apis/$GROUP_NAME/$VERSION.
+• Custom Extensions. Developers can add new object types to the API without changing Kubernetes source code by using Custom Resource Definitions (CRDs) or the aggregation layer.
+
+Ways to Interact with the API
+
+• Command-Line Tools. Tools like kubectl are essentially wrappers around the API. When you run kubectl get pods, the CLI translates your command into an HTTP GET request.
+• Client Libraries. Developers writing custom operators or automation scripts can use official Kubernetes Client Libraries in languages like Go, Python, Java, and JavaScript.
+• Direct HTTP Calls. You can send raw requests using tools like curl by authenticating with cluster certificates or opening a local tunnel via kubectl proxy.

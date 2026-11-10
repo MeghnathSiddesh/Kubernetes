@@ -1,0 +1,73 @@
+A simple docker container
+Let us deploy a simple python application in a docker
+
+docker run python-app
+when the load increases, we deploy more instances of our application, by creating multiple docker containers
+docker run python-app
+docker run python-app
+docker run python-app
+docker run python-app
+in future our application goes architectural changes and grows more, we now need to helper container that helps our web-app in processing and fetching data from elsewhere
+
+these helper containers maintain 1-1 relationship with containers and thus needs to communicate with application container directly and access data from those containers
+
+for this we need to maintain a map of what container(app) and helper containers are connected
+we need to establish network connectivity between these containers ourselves using links
+
+we need to create shareable volumes among containers and need to maintain of that as well
+we need to monitor the state of application container and when it dies, manually kill helper container as well as it no longer required
+when new container is deployed we need to deploy helper container as well
+
+with pods Kubernetes does this automatically
+we just need to define what containers a pod consists of and containers in a pod by default will have access to same storage, network namespace and same fate as in they will be created together and destroyed together
+
+multi container pod are a rare use case
+------------
+
+A Pod is the smallest deployable unit of computing that you can create and manage in Kubernetes. Rather than running containers directly, Kubernetes wraps one or more tightly coupled containers inside a Pod so they can run together as a single application instance
+
+containers are encapsulated in kubernetes object known as pod
+a pod is a single instance of an application(the whole independent microservice functioning application)
+
+when the load increases to the pod, you will not spin you web aplication container in the same pod
+you will create seperate pod with a new instance of same application via container
+
+if users keep increasing, and you dont have space in your current node, you can deploy additional pods in a new node in the cluster
+
+pods will usually have 1-1 relationship with container running your application, but we are not restricted to have sing container in a single pod
+
+but we dont have multiple containers of same kind(scale container) in a pod, we can have helper containers
+
+
+
+Key Characteristics of a Pod
+
+• Shared Network. Every Pod gets its own unique IP address inside the cluster. All containers inside the same Pod share this IP and port space, allowing them to talk to each other directly over localhost.
+• Shared Storage. Pods can define shared storage volumes that all containers within that Pod can access and use to exchange files.
+• Shared Lifecycle. Containers in a Pod are always scheduled onto the same machine and start, stop, or restart together.
+• Ephemeral Nature. Pods are temporary and mortal. If a Pod or the machine it runs on fails, Kubernetes destroys it and spins up a brand-new replacement rather than repairing the old one
+
+
+Common Pod Patterns
+
+• Single-Container Pod. This is the most common setup, where a Pod acts as a simple wrapper around one container (such as a single web server).
+• Multi-Container Pod. Advanced setups pair a main application container with tightly coupled helper containers—such as a sidecar that collects logs or an init container that runs setup tasks before the app starts.
+
+A multi-container Pod in Kubernetes is a single deployable unit that wraps two or more tightly coupled containers together. All containers inside the Pod run on the same worker node and are scheduled, started, and stopped as one atomic entity.
+
+How Containers Share Resources
+
+Instead of isolating containers completely from each other, a multi-container Pod acts as a shared "logical host".
+• Shared Network. All containers share the same IP address and port space, allowing them to communicate directly over localhost without external networking overhead.
+• Shared Storage. Pods can mount shared storage volumes (such as emptyDir) into multiple containers so they can read and write the same files.
+• Shared Lifecycle. Containers in a standard multi-container Pod are created and terminated together on the same node, which ensures data locality.
+
+Common Design Patterns
+
+While most Pods run a single container, developers on Stack Overflow agree that adding secondary containers is useful for handling helper tasks without modifying the main application's code.
+• Sidecar Pattern. A helper container runs alongside the main application for the Pod's entire lifespan to extend its features. Common examples include log shippers (like Fluent Bit) or service mesh proxies (like Envoy).
+• Init Container Pattern. Specialized setup containers run to completion before the main application starts. They handle prerequisites like fetching secrets, waiting for a database to become ready, or populating configuration files.
+• Ambassador Pattern. A proxy container simplifies outbound network connections for the main application. It handles tasks like service discovery, encryption in transit, or routing requests to different database shards.
+• Adapter Pattern. A helper container standardizes or reformats the main application's output before external systems consume it, such as converting custom application logs into a uniform monitoring format.
+
+

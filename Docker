@@ -1,0 +1,96 @@
+Docker API
+
+The Docker API (specifically the Docker Engine API) is a RESTful API exposed by the Docker daemon (dockerd) that allows you to control and automate virtually all of Docker's features using code, standard HTTP clients, or software development kits (SDKs).
+
+Whenever you run a standard command in your terminal like docker run or docker ps, the Docker Command Line Interface (CLI) is actually translating that text into a REST API request and sending it to the Docker daemon background service to do the heavy lifting.
+
+
+Core Architecture & How It Works
+
+Docker operates on a client-server architecture:
+• The Client (Docker CLI): The command-line tool you type into (docker ...).
+• The Server (Docker Daemon / dockerd): The continuous background service that manages containers, images, volumes, and networks.
+• The Bridge (Docker API): The communication protocol connecting them. By default, this API communicates over local, secure UNIX sockets. However, it can be exposed over a network port (TCP) if you need to manage your containers remotely.
+
+
+Key Capabilities
+
+
+Category	Typical Capabilities via API
+Container Management	Create, start, stop, pause, kill, restart, and inspect container lifecycles.
+Image Management	Pull images from registries, push custom built images, tag them, or build them from a Dockerfile.
+System & Monitoring	Stream live resource usage (CPU/memory stats), grab container logs, and check system info.
+Storage & Networking	Dynamically create, connect, or delete isolated networks and storage volumes.
+
+you can use Native Language SDKs, Raw HTTP Clients (e.g., cURL), Third-Party Integrations tools like VS Code, PyCharm, and continuous integration engines (like Jenkins or GitHub Actions) tap directly into this API to build images, spin up test databases on-the-fly, or display running container metrics directly inside your editor code panel.
+
+--------------
+
+The Docker CLI (Command Line Interface) is the primary command-line tool developers use to interact with Docker. It acts as the "user interface" for Docker, translating the user-friendly commands you type into the terminal into REST API requests that the background Docker Daemon (dockerd) can understand and execute.
+
+------------
+
+Docker Auth refers to the mechanisms used to verify identity (Authentication) and control permissions (Authorization) across the Docker ecosystem. It determines who you are and what actions you are allowed to perform when interacting with Docker Registries (like Docker Hub) and the Docker Daemon API.
+
+Because Docker operates on a client-server architecture, security is split into two primary operational areas: Registry Auth (securing images) and Daemon/API Auth (securing the runtime).
+
+--
+Docker Daemon & API Authentication (Access Control)
+
+The Docker Daemon (dockerd) runs with root privileges on the host machine. Controlling who can send commands to this daemon is critical, as anyone with access can effectively take over the entire server.
+
+A. Local Authentication (UNIX Sockets)
+
+By default, the Docker CLI communicates with the Daemon via a local UNIX socket located at /var/run/docker.sock.
+• Group Permissions: Local authentication relies strictly on Linux file permissions.
+• Only the root user and members of the docker user group have read/write access to this socket. Adding a user to the docker group grants them full root-equivalent control over the host.
+
+B. Remote Authentication (TLS/HTTPS)
+
+If you need to manage a Docker server remotely over a network connection (TCP port 2376), standard password login isn't used. Instead, Docker relies on Mutual TLS (mTLS) Authentication:
+• Server Verification: The Docker Daemon uses a server certificate to prove its identity to the CLI client and encrypt the traffic.
+• Client Verification: The Docker Daemon requires the client to present a trusted client certificate. If the certificate is missing or not signed by the designated Certificate Authority (CA), the Daemon completely rejects the connection.
+--
+
+Docker Authorization Plugins (Fine-Grained Control)
+
+Standard Docker authentication is all-or-nothing: if you have access to the daemon, you can run any command. To solve this, Docker supports Authorization Plugins (AuthZ).
+These plugins act as a reverse proxy between the API and the Daemon. When a user sends a command, the plugin inspects the request before it executes:
+• How it works: A user might be authenticated to use Docker, but the AuthZ plugin checks an internal policy database to see if they are authorized to run that specific command.
+• Example Use Case: A company might implement a policy stating: "Developers are allowed to run docker ps and docker logs, but are blocked from running docker run --privileged or docker network rm."
+--
+--------
+
+A Docker engine
+
+Docker Engine is not a single program. Under the hood, it is a client-server architecture layered on top of low-level Linux Kernel features.
+
+The Three Main User-Facing Layers
+
+• Docker CLI (docker): The command-line client that accepts your input commands (like docker run) and translates them into instructions.
+• Docker REST API: An HTTP API that the CLI uses to communicate with the background service.
+• Docker Daemon (dockerd): A long-running background service that manages Docker objects—including images, containers, storage volumes, and networks.
+
+
+What Actually Happens Under the Hood (Step-by-Step)
+
+When you run a command like docker run nginx, the request travels through a modular stack of components:
+1. API Call: The Docker CLI sends your command via the REST API to the Docker daemon (dockerd).
+2. Image Check & Pull: dockerd checks if the image exists locally. If not, it pulls the image layers from a registry (such as Docker Hub).
+3. containerd (High-Level Runtime Manager): Instead of starting the container directly, dockerd hands the request off to containerd (a CNCF-managed project). containerd manages the full container lifecycle, unpacks the image layers, and builds an OCI (Open Container Initiative) bundle.
+4. runc (Low-Level OCI Runtime): containerd invokes runc, a lightweight tool built strictly to spawn containers according to the OCI specification. runc interacts directly with the Linux kernel via system calls (clone, mount, setns) to create the container, sets up isolation, launches the process, and then exits.
+5. The Container Shim (containerd-shim): Once runc exits, a small process called the shim steps in to keep the container's stdin/stdout open, maintain the exit status, and prevent deadlocks.
+
+
+How Isolation Works in the Kernel
+
+A Docker container is not a mini virtual machine; it is just a regular operating system process running directly on the host kernel, wrapped with resource and visibility boundaries:
+• Linux Namespaces: Control what the process can see. They isolate the process tree (PID), network interfaces (NET), mount points (MNT), IPC, and hostnames.
+• Control Groups (cgroups): Control how much the process can use. They limit and account for hardware resources like CPU, memory, and I/O.
+• OverlayFS (Layered Filesystem): Stacks read-only image layers (like the OS binaries and libraries) beneath a thin, read-write container layer. Any changes you make inside the container happen only in that top writable layer.
+--------------
+
+A Linux namespace is a kernel feature that isolates and partitions global system resources so that a process (or a group of processes) sees a completely different set of resources than other processes on the same machine.
+In simple terms, a namespace restricts what a process can see. It tricks a program into believing it has its own dedicated copy of the operating system, making it feel like it is running entirely alone on the computer. This abstraction is the foundational technology that makes containers (like Docker, Podman, and Kubernetes) possible
+
+learn Dockersecureity for this

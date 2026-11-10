@@ -1,0 +1,57 @@
+# there is major difference in kubectl create and kubectl apply
+
+# kubectl create is an imperative command that creates a brand-new resource and fails if it already exists, whereas kubectl apply is a declarative command that creates a resource if it is missing or updates it if it already exists.
+
+kubectl create
+
+Management Style: Imperative. You tell Kubernetes the exact action to perform right now.
+if Resource Already Exists:	Fails with an AlreadyExists error.
+Change Tracking:	Does not save configuration history(no versioning).
+Partial YAML Files:	Requires a complete resource definition.(no partial definition)
+Best Use Case	Quick: one-off testing or generating boilerplate YAML files (--dry-run=client -o yaml)
+
+kubectl apply
+
+Management Style: Declarative. You define the desired end state in a (yaml)file, and Kubernetes figures out how to reach it.
+if Resource Already Exists:	Updates the existing resource to match your updated YAML file.(you can change the configuration of the kubernetes object within the yaml file and apply it, the change will reflect in existing infra)
+Change Tracking:	Saves a last-applied-configuration annotation on the resource to compare future changes
+in the pods metadata section
+metadata:
+  annotations: 
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Pod","metadata":{"annotations":{},"labels":{"run":"redis"},"name":"redis","namespace":"default"},"spec":{"containers":[{"image":"redis","name":"redis","resources":{}}],"dnsPolicy":"ClusterFirst","restartPolicy":"Always"},"status":{}}
+(versioning exists)
+Partial YAML Files:	Can accept partial YAML files to patch specific fields on an existing object.
+Best Use Case	Quick: Production workflows, version-controlled YAML files, and ongoing updates.
+
+
+How They Work in Practice
+
+• When you run kubectl create -f pod.yaml: Kubernetes reads the file and builds the object. If you edit pod.yaml later and run kubectl create -f pod.yaml again, Kubernetes rejects it because an object with that name is already running.
+• When you run kubectl apply -f pod.yaml: Kubernetes checks if the object exists. If it does not exist, it creates it and attaches a hidden metadata annotation storing your YAML contents. If you edit pod.yaml and run kubectl apply -f pod.yaml again, Kubernetes compares your new file against that saved annotation and applies only the differences.
+• Avoid mixing them: Never create a resource with kubectl create and later try to manage it with kubectl apply. Because create skips the tracking annotation, apply will display warnings and may fail to update fields cleanly.
+
+
+------------------------------
+
+kubectl apply
+
+kubectl edit opens a live Kubernetes resource directly in your terminal's default text editor (like vi or nano), allowing you to modify its configuration and immediately apply the changes to the cluster as soon as you save and exit.
+
+
+How kubectl edit Works
+
+• Live cluster modification. Unlike kubectl apply (which reads from your local YAML file), 
+
+kubectl edit pod my-nginx-pod ; fetches the live object directly from the Kubernetes API server.
+
+• Instant save and patch. When you save and close the editor, Kubernetes validates your changes and updates the live object in place.
+
+• Same Pod immutability rules apply. Just like kubectl apply, if you run kubectl edit pod and try to change an immutable field (like containerPort or env), Kubernetes will reject the save and reopen the editor with an error message at the top explaining which field is forbidden.
+
+
+Important Warning About Drift
+
+• Local files go out of sync. If you fix a wrong image name using kubectl edit pod my-nginx-pod, your pod will start running, but your local pod.yaml file will still have the old, broken image name.
+
+• Future overwrites. If you later run kubectl apply -f pod.yaml from your local file, Kubernetes will overwrite your live kubectl edit fix with the old broken configuration from your file.

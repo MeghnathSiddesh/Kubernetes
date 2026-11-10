@@ -1,0 +1,35 @@
+The kube-apiserver is the central management gateway and "front door" of a Kubernetes cluster. Every single interaction—whether from a human running kubectl, an external CI/CD tool, or internal control plane components like the scheduler and controllers—must pass through the API server.
+
+Core Architecture & Request Flow
+
+The API server is largely stateless; it does not store cluster data itself. Instead, it acts as the translation layer between clients and the cluster's distributed, strongly consistent database, etcd.
+When a client sends a request (for example, kubectl apply -f pod.yaml or a direct REST call), the request goes through a strict sequential pipeline inside the kube-apiserver:
+1. HTTP/REST Handler
+	• The API server runs an HTTP/HTTPS server that exposes RESTful endpoints.
+	• Resources are organized by API Group, Version, and Kind (e.g., /api/v1/namespaces/default/pods).
+2. Authentication
+	• The server verifies who is making the request.
+	• It checks client certificates, bearer tokens, OpenID Connect (OIDC) tokens, or webhook token authenticators provided by the request. If authentication fails, it returns an 401 Unauthorized error.
+3. Authorization
+	• The server verifies what the authenticated user is allowed to do.
+	• It typically uses RBAC (Role-Based Access Control), ABAC (Attribute-Based Access Control), or webhook evaluators to check if the user has permission for that specific verb (get, list, create, update, delete) on that resource and namespace. If unauthorized, it returns a 403 Forbidden error.
+4. Mutating Admission Control
+	• Requests that modify data pass through a chain of mutating admission controllers (e.g., DefaultStorageClass, NamespaceDefaultServiceAccount).
+	• These controllers can alter or inject default values into the incoming object spec (such as adding a default sidecar or setting default security contexts).
+5. Schema & Object Validation
+	• The API server checks the incoming JSON/YAML payload against the compiled-in OpenAPI/Swagger schema for that resource kind to ensure the syntax, fields, and types are valid.
+6. Validating Admission Control
+	• The request then passes through validating admission controllers (e.g., LimitRanger, ResourceQuota, or custom ValidatingWebhookConfigurations).
+	• These can reject the request outright if it violates cluster policies or constraints (e.g., requesting more CPU than allowed by a ResourceQuota).
+7. Persistence to etcd
+	• Once validated and accepted, the API server serializes the object state and writes it to etcd.
+	• etcd assigns a modification index (etcdIndex) and returns a confirmation to the API server.
+8. Watch Mechanism & Component Notification
+	• The API server does not push tasks to worker nodes or other control plane pieces directly. Instead, components like the Scheduler, Controller Manager, and Kubelet maintain long-lived Watch streams with the API server.
+	• When etcd updates, the API server pushes watch events (ADDED, MODIFIED, DELETED) to any component subscribed to those resource types, triggering asynchronous reconciliation.
+
+Key Subsystems & Features
+
+• API Aggregation Layer: Allows you to extend the Kubernetes API by registering secondary API servers (like metrics-server) that plug right into the main kube-apiserver routing table.
+• Priority and Fairness: Manages and throttles incoming request traffic so high-priority system tasks aren't starved out by a flood of heavy kubectl or custom controller queries.
+• Garbage Collection: Automatically cleans up dependent resources (such as ReplicaSets cleaning up orphan Pods) when a parent object is deleted.

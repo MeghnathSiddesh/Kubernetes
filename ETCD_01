@@ -1,0 +1,117 @@
+what is etcd?
+
+etcd is Distributed reliable key value store, it is simple, secure and fast
+--
+what is key-value store? and how it diff from traditional databases
+
+1)relational db's are strict schema, performs complex query and good in performance, but is very rigid in terms of flexibilty and best for structure data
+2)Document store, stores information in from of document each individula information is stored in a document which is a file, these files can be in any format(no schema) and changes to one file will not affect others
+Document stores typically stored data in a json format
+it is semi structred data, with flexibility offers bit less performance
+
+3)third type of data is simply a key value store, which stores value against a key
+
+key : name
+value : John
+
+
+Key : location
+value : New York
+
+Key : user : John
+value : name=john,age=45,location=new york,salary=50000
+
+Key : user : John
+value : '{"name"="john","age"=45,"location"="new york","salary"=50000}'
+
+value can be a set of properties or json document itself
+
+etcd is one such key value store which is Distributed reliable
+--
+
+how to operate(use) etcd
+High Availability(Distributed system)
+How etcd operates at cluster mode
+what is RAFt protocol
+Best practices on no of nodes in cluster
+
+----------------------
+
+install etcd
+
+1)download binaries
+2)extract the binaries
+3)Run etcd (./etcd  this command for runnign script)
+when you run etcd it starts a servie that listens on port 2379 by default which is etcd server
+
+you would run it a system service or as a pod on a kubernetes cluster
+
+you can then attach any clients to etcd service to store and retrive information
+the default client for etcd is etcdctl(etcdctl is command line client for etcd used to execute etcd commands)
+
+./etcdctl put key1 value1
+./etcdctl get key1
+./etcdctl
+
+------------------
+
+the etcd data store, stored information regarding the cluster such as 
+
+Nodes
+configs
+Pods
+Secrets
+Accounts
+Roles
+Bindings
+Others
+
+every information you see when you run kunectl get, it is from etcd key value store
+every change you make to cluster like, adding additional nodes, deploying pods,replica sets are updated in etcd server
+
+2 types of kubernetes deployment
+1)from scratch
+2)using Kube ADM tool
+
+
+1)setup etcd from scratch
+if you setup your cluster from scratch, then you deploy etcd by download etcd binaries yourself and configuring etcd as server in master node
+
+wget -q --https-only \
+etcd.service ;there will be one address(url) where your etcd listens, this url should be configured in kube api server when it tries to reach etcd server
+
+2)configuraing etcd as clusters for HA in kubernetes
+
+3)setup using Kube ADM
+kube ADM will deploy etcd server for you as a pod in the kube system namespace
+you can explore etcd database using etcd utility within this pod(commands)
+
+4)in a HA environment you'll have mutiples master nodes in your cluster
+then you'll have multiple etcd servers spread across master nodes
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

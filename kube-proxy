@@ -1,0 +1,19 @@
+within a kubernetes cluster, whether in master or in worker nodes
+
+every pod can reach every other pod, can acheived by deploying pod netwokring solution to the cluster
+
+a pod network is an internal virtual network than spans across all the nodes in the cluster, to which all the pods connect to 
+
+through this network they are able to connect
+
+there are available for deploying such network 
+
+we will talk about networking, services, kube proxy and pod netwokring more detail in later this course
+
+install kube proxy
+
+download kube proxy binaries from kubernetes release page
+extract and run it as a service
+
+kubeadm tool deplys the kubeproxy as pods on each node
+it is deployed as a daemonset, 

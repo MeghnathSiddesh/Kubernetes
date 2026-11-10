@@ -1,0 +1,140 @@
+# creating pod using yaml configuration file
+
+# kubernetes uses yaml file as input for the creation of objects such as pods, replicas, deployments, service etc
+
+# all of these objects follows a similar structure of yaml in kubernetes definition file, which is this yaml file
+
+# a kubernetes definition container 4 top level feilds which are must and should : apiversion, kind, metadata, spec
+
+apiVersion: v1
+#this is the version of kubernetes API we used to create object, depening on what object we create must use right API version
+# pod->v1
+# service->v1
+# ReplicaSet->apps/v1
+# Deployment->apps/v1
+
+# here V is capital in apiVersion and v is smalle in v1
+
+kind: Pod
+# kind refers to type of object we are creating, here it is pod
+# other values can be replicas, deployments, service etc
+# P is caps in Pod
+
+metadata: 
+  name: myapp-pod
+  labels: 
+    app: myapp
+    type: front-end
+# it is the date about the object like : its name, labels etc and names and labelsare childrens of metadata
+# metadata is a dictionary
+# name is string value, labels is a dictionary within metadata dictionary and it can have any key and value pairs (consider like tags of the object), unlike metadata 
+# you can use these labels to identify the frontend pod among 100's of myapp-pod's
+# under metadata you can only specify name and labels
+
+spec: 
+  containers: 
+    - name: nginx-container
+      image: nginx
+    - name: support-container
+      image: image_to_support_container
+
+# spec
+# this is where we provide information to kubernetes pertaining to that object
+# spec is a dictionary
+# add property under it called containers, containers is a list/array, becuase pods can have multiple containers within it 
+# the item in the list is a dictionary, so you can have name and image (docker image) property
+
+# once file is created run the command
+
+kubectl create -f file_name.yaml
+
+kubectl apply -f file_name.yaml
+
+these will read from yaml file and create the pod
+
+it will create the pod and run the containers inside the pod
+
+# to create pods
+
+kubectl get pods
+# to see list of pods available
+
+# here from the output of get pods commands, ready section tells no of running containers in pod/no of containers in the pod
+
+kubectl get pods -o wide
+# to get some additiona info about the pods listed  
+
+kubectl describe pod myapp-pod
+# to see detailed info of pod
+
+we can also create pods using kubectl run, instead of yaml definition file
+
+kubectl run pod_name --image:version
+
+#to get detailed information about the pod
+
+kubectl describe pod pod_name
+
+kubectl describe pod web-app
+
+# to delete a pod
+kubectl delete pod pod_name
+
+kubectl delete pod web-app
+
+# when you create a pod using yaml file, kubernetes just look at the yaml file syntax
+# even if the values are incorrect in spec section, it will create the pod
+# but the containers inside pod may not be created or running due to this error 
+# you can view using kubectl describe command
+
+
+
+#  if you have created pod with yaml file, in which yaml file configuration(eg.. image name is wrong) is wrong and you ran create pod command and it successfully created
+# you can edit the yaml file and apply the command
+# reapply the pod with edited yaml file; kubectl apply -f sample.yaml
+# this will make changes to your running pod and mkes it running
+
+# provided you create the pod using apply command at first, not using create command or kubectl run
+
+
+ If You Originally Used kubectl apply -f sample.yaml
+
+• Updating only the image name: Kubernetes will patch the existing Pod in place, restart the container inside it with the corrected image, and bring it to Running (keeping the same Pod name and IP).
+
+• Updating any other spec field: Because Pods are immutable objects, editing anything else (such as containerPort, env, or command) will cause kubectl apply to fail with a Forbidden: pod updates may not change fields other than... error.
+
+Best practice if you change anything like image,env,ports etc in sample.yaml 
+
+kubectl replace --force -f sample.yaml
+#  It deletes the broken Pod immediately and creates a brand-new one using your updated sample.yaml.
+
+# You can also run kubectl delete pod <pod-name> followed by kubectl apply -f pod.yaml
+
+1. Delete and Recreate the Pod (Recommended)
+# To apply the corrected image name from your updated YAML file, force-replace the existing Pod:
+kubectl replace --force -f pod.yaml
+
+# • What this does. It deletes the broken Pod immediately and creates a brand-new one using your updated pod.yaml.
+# • Alternative two-step method. You can also run kubectl delete pod <pod-name> followed by kubectl apply -f pod.yaml.
+
+kubectl run redis --image=redis123 --dry-run=client
+# it will dry run the command, without implementation
+kubectl run redis --image=redis123 --dry-run=client -o yaml
+# it will gives the yaml file needed to create this pod
+
+kubectl run redis --image=redis123 --dry-run=client -o yaml > redis.yaml
+# it stores the resulting yaml file in redis.yaml
+
+
+to delete a pod use
+kubectl delete pod pod_name
+
+----------------
+
+kubectl get pod redis -o yaml > hello.yaml
+
+# to get full live information about the pod from kubeapiserver
+
+kubectl get pod redis
+NAME    READY   STATUS    RESTARTS   AGE
+redis   1/1     Running   0          10m

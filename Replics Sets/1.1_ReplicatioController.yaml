@@ -1,0 +1,104 @@
+# let us understand how we create a Replication controller
+
+# we start by creating a Replication controller definition yaml file
+# just like any kubernetes definition file, we have 4 sections
+
+apiVersion: v1
+# apiVersion is specific to what we are creating
+# in this case Replication controller is controller is supported in kubernetes API version v1
+kind: ReplicationController
+# here ReplicationController is the kubernetes object we create
+metadata: 
+  name: myapp-rc
+  # name is the name of the replication controller
+  labels:
+    name: myapp
+    type: front-end
+spec: 
+# for any kubernetes definition file the spec defines what's inside the object we are creating
+# in this case we are creting multiple instances of a pod, inside replication controller
+# but what pod, we need to define the template of the pod that needs to be created under template section
+  template: 
+    metadata: 
+      name: my-app
+      labels: 
+        app: myapp
+        type: frontend
+    spec: 
+      containers: 
+        - name: nginx
+          image: nginx
+  replicas: 3
+
+        
+# metadata and spec are the childrens of template section
+# template id the children of spec
+# we now have two metadata and spec section, one for replication controller and other for pods created under it
+# replicas define the no of pods that should actively running(desired no) under this pod template
+# template and replicas are direct child of spec, so they are sibling
+
+
+
+
+# a pods configuration
+# "
+#   apiVersion: 
+#   kind: 
+#   metadata: 
+#     name: my-app
+#     labels: 
+#       app: myapp
+#       type: frontend
+#   spec: 
+#     containers: 
+#       - name: nginx
+#         image: nginx
+# "
+
+# here you remove  apiVersion and kind section, as it is implicit that we only create pods in replication controller, so apiserver knows that this is pod tht needs to be create, so we dont need apiversion and kind to tell apiservers that pod needs to be created
+
+# once the file is ready,then use below command to create the replicationcontroller and pods under it
+kubectl create -f ReplicationController.yaml
+
+# to view all the replicationcontroller created, us
+kubectl get replicationcontroller
+
+# to view the pods that were created by the replication controller, us
+
+kubectl get pods
+# all the pods that starting with the name of replication controller(myapp-rc) are the pods
+
+
+
+
+
+
+
+---------------
+
+# a selector option is available in a ReplicationController, 
+# though it is optional and only supports basic equality-based label matching. 
+# If you omit the selector field in your YAML manifest, Kubernetes automatically populates it using the labels defined in your pod template (spec.template.metadata.labels).
+
+How selector Works in a ReplicationController
+
+• Equality-Based Only: A ReplicationController selector only checks for exact key-value matches (such as app: redis). It does not support advanced set-based expressions like matchExpressions (In, NotIn, Exists) found in ReplicaSets and Deployments.
+• Flat Map Structure: Unlike newer resources that nest labels under selector.matchLabels, a ReplicationController places key-value pairs directly under spec.selector.
+• Optional Field: Leaving spec.selector blank is common practice. Kubernetes defaults it to match the exact labels inside spec.template.metadata.labels.
+
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: redis-rc
+spec:
+  replicas: 3
+  selector:
+    app: redis  # Optional; matches template labels directly without matchLabels
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis

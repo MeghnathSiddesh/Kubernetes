@@ -1,0 +1,42 @@
+kube_controller_manager manages various controller in kubernetes
+
+controller is process that continously monitor the status of various components withint hte system and work towards bringing the whole system towards desired functioning state
+
+node controller is responsible for monitoring the state of nodes and taking necessary actions to keep applications running
+it checks the status of nodes every 5s
+if it stops receiving health checks from a node then node is marked unreachable
+it waits for 40s before marking as unreachable
+after node is marked unreachable it gives 5mins to come back, if it doesn't, it removes the pods in that node and provisons them on healthy node if th pods are part of replicaset 
+
+replication controller,
+it is responsible to monitoring the status of replica set and ensuring that desired no of pods are available at all the times within the set
+if a pod dies it creates another one 
+
+there many more controller available in kubernetes
+
+these controllers ae the brain in kubernetes
+
+all these controllers are packaged into a single process called kubernetes-controller manager
+
+when you install kubernetes-controller manager the diff controllers get installed as well
+
+manual way setup
+download the kube_controller_manager in kubernetes release page 
+extract it and run it as a service
+
+here it will mention the node monitor period, node monitor grace period, pod eviction timeout
+additional option called controller, you can use it to specify whoch controllers to enable
+by default all controllers are enabled
+
+viewing the kube_controller_manager server
+if it setup manually
+cat/etc/systemd/system/kube-controller-manager.service
+
+with kube admin tool
+kube admin tool deploys kube_controller_manager as a pod in the kube system namespace on the master node
+you can see the option of kube_controller_manager is the pod definition file located in 
+/etc/kubernetes/manifests/kube_controller_manager.yaml
+
+you can view running process of kube_controller manager using
+ps -aux | grep  kube-controller-manager
+

@@ -1,0 +1,120 @@
+Writing YAML relies on indentation, key-value pairs, and dashes to organize data into a clean, readable hierarchy without brackets. Every level of nesting uses spaces (typically two spaces per level) to show which items belong together.
+
+1. The Golden Rules of YAML Formatting
+
+Before writing your first line, keep these strict formatting rules in mind.
+• Spaces Only: Always use spaces for indentation, and never press the Tab key.
+• Consistent Indentation: Stick to the same number of spaces (2 spaces is the industry standard) for every nested level.
+• Space After Colons: Always put a space after a colon in a key-value pair (name: Alice, not name:Alice).
+• Case Sensitivity: Keys are case-sensitive, so User and user are treated as two different items.
+
+
+
+2. Basic Building Blocks
+
+
+Key-Value Pairs (Dictionaries/Maps)
+
+The foundation of YAML is a key followed by a colon, a space, and a value.
+app_name: MyWebApp
+version: 1.0
+is_active: true
+
+
+Nested Objects (Hierarchy)
+
+To group settings under a main category, leave the main key empty and indent the child items on the next lines.
+database:
+  host: 127.0.0.1
+  port: 5432
+  username: admin
+
+
+Lists (Arrays/Sequences)
+
+Use a hyphen followed by a space (- ) to create a list of items.
+allowed_roles:
+  - admin
+  - editor
+  - viewer
+
+
+Lists of Objects
+
+You can combine lists and key-value pairs to define multiple complex items, such as a list of users or servers.
+list of dictionaries
+users:
+  - name: Alice
+    role: admin
+  - name: Bob
+    role: editor
+
+
+3. Data Types & Multi-line Text
+
+
+Common Data Types
+
+YAML automatically detects most data types without needing quotes.
+• Strings: greeting: Hello World (Use quotes if the text contains special characters like colons: message: "Error: File not found").
+• Numbers: retries: 3 or timeout: 2.5.
+• Booleans: debug: true or cache: false.
+• Null values: middle_name: null or middle_name: ~.
+
+
+Multi-line Strings
+
+When you need to write a long block of text or a script, use a pipe (|) or a greater-than sign (>).
+• Preserve Newlines (|): Keeps every line break exactly as you typed it.
+
+startup_script: |
+  echo "Starting server..."
+  npm install
+  npm start
+
+• Fold Newlines (>): Joins multiple lines into a single paragraph separated by spaces.
+
+description: >
+  This text spans multiple lines in the file
+  but will be read as one continuous sentence.
+
+
+
+4. Putting It All Together
+
+Here is a complete, realistic configuration file combining everything above.
+
+# Application Configuration File
+# Nested Dictionaries
+service:
+  name: payment-gateway
+  environment: production
+  port: 8080
+  debug: false
+
+# List of supported currencies
+currencies:
+  - INR
+  - USD
+  - EUR
+
+# Database connections
+databases:
+  - type: primary
+    host: ://example.com
+    replicas: 2
+  - type: backup
+    host: ://example.com
+    replicas: 1
+
+
+yaml is a dictionary
+
+List of dictionaries: Start the first key of each dictionary with a dash (- ) and align the remaining keys beneath it.
+
+employees:
+  - id: 101
+    role: Backend Engineer
+  - id: 102
+    role: DevOps Engineer
+

@@ -1,0 +1,21 @@
+they are the sole POC in worker nodes for master node components
+
+they load/unload containers from nodes as insrtucted by schedular on the master node
+they also send back reports on regular intervals on the status of the node and containers on them
+
+kubelet in the worker node registers the node with the kubernetes cluster
+
+when it receives insrtuctions to laod a container or a pod on the node, it requests the container runtime engine, which may be docker, to pull required image and run an instance 
+
+kubelete then continous to monitor the status of the pod and container in it and reports to the kubeapiserver on timely basis
+
+install kubelet
+
+manually
+
+if kubeadmin tool to deply your cluster
+it does n;t automatically deploy kubelet, you must always manually install kubelet on your worker nodes
+download the installer, extract it and run it as a service
+
+ps -aux | grep kubelet ;in worker node
+to view the running kubelet processes on worker node

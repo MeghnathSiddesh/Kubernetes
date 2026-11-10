@@ -1,0 +1,27 @@
+A Namespace in Kubernetes is a virtual cluster inside a physical cluster that isolates and organizes resources like pods, services, and deployments. It lets multiple teams, projects, or environments (like dev, staging, and prod) share the same cluster safely without naming conflicts.
+
+Why Use Namespaces?
+
+• Unique Naming: Resource names must be unique within a single namespace, not across the entire cluster. Two different namespaces can both have a pod named redis.
+• Resource Quotas: You can limit how much CPU, memory, or storage a specific namespace can consume so one team does not starve others.
+• Access Control (RBAC): You can grant users or teams permissions to view or modify resources only inside their assigned namespace.
+• Logical Organization: Separating apps into namespaces keeps large clusters clean and easy to manage.
+
+Default Namespaces in Every Cluster
+
+• default: The starting namespace used for any resource created without specifying a -n or --namespace flag.
+• kube-system: Holds core Kubernetes system components like CoreDNS, kube-proxy, and control plane pods. Avoid creating your own apps here.
+• kube-public: A readable namespace visible to all users, mostly used for public cluster information.
+• kube-node-lease: Stores heartbeat objects (Lease resources) that help the control plane detect if a worker node is healthy or offline.
+
+Essential kubectl Namespace Commands
+
+• List all namespaces: kubectl get namespaces (or kubectl get ns)
+• Create a namespace: kubectl create namespace dev
+• Run a command in a specific namespace: kubectl get pods -n dev
+• View pods across all namespaces: kubectl get pods -A (or --all-namespaces)
+
+Important Limitations to Know
+
+• Not All Resources Are Namespaced: Cluster-wide objects like Nodes, PersistentVolumes (PVs), and Namespaces themselves live outside of namespaces.
+• No Network Isolation by Default: Pods in one namespace can still communicate with pods in another namespace unless you apply a NetworkPolicy to block traffic.

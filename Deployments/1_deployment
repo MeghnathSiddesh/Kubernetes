@@ -1,0 +1,85 @@
+Kubernetes deployments
+
+forget about pods, replicasets and other things
+
+how you want to deploy your application in a production environment,
+ - you need webserver that needs to be deployed in prod env
+ - not one but many such instances runing for reasons
+ - whenever newer versions of application builds(image) become available (may be on docker registry) you would like to upgrade your docker instances seamlessly
+ - you do not want to upgrade all of them at once, coz this may impact user accessing application
+ - you upgrade them one after other, that kind of upgrade is known a rolling updates
+ - suppose one of the upgrade you performed resulted in unexpected error and you are asked to undo the recent change
+ - you would like to roll back the changes you carried out
+
+ - you would like to make multiple changes to your environment
+ such as upgrading underlying web server versions, scaling your environment, modifying resource allocation etc
+ - you dont want apply each change immediately
+ - instead you would like to apply a path to your environment, make the changes and resume so that all the changes are rolled out together
+
+ all of these capabilities are available in kubernetes deployments
+
+ pod deploys single instance of our application
+ each container is encapsulated inside pod
+
+ multiple such pods are deployed using replicasets or replication controller
+
+ and then deployment, which is higher in the hierarchy , it is a high level object  
+ it provides the capability to upgrade the underlying instances seamlessly using rolling updates and pause and resume changes as required
+
+   deployment
+        |
+   replicaset
+   |    |    |
+ pod1 pod2  pod3
+
+--------------
+
+how do we create a deployment
+
+we create a deployment definition file
+the contents of the deployment definition file are similar to replica set definition file, except for the kind, now it is going to be Deployment
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  #deployment name
+  name: myapp-deployment
+  labels:
+    app: myapp
+    type: frontend
+
+spec:
+  template: 
+    metadata:
+      name: myapp-pod
+      labels:
+        app: myapp
+        type: frontend
+    spec: 
+      containers:
+        - name: nginx
+          image: nginx
+replicas=5
+selector:
+  matchLabels:
+    app: myapp
+    type: frontend
+
+#once the file is ready run
+kubectl create -f deployment-definition.yaml
+
+
+#to view deployments
+kubectl get deployments
+myapp-deployment
+
+#the deployment automatically creates replicaset in the name of deployment
+kubectl get replicaset
+myapp-deployment-6799874646
+
+#replicaset ultimately create pods
+kubectl get pods
+myapp-deployment-6799874646-54hr5
+
+# to see all the created objects(deployments, deplicasets, pods,etc)
+kubectl get all 

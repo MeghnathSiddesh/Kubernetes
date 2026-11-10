@@ -1,0 +1,298 @@
+# it is very similar to replication controller
+
+apiVersion: apps/v1
+# replicaset api version is apps/v1
+# if you type this wrong, you'll get error "no match for kind=ReplicaSet", because sepcified version has no support for replicaset
+kind: ReplicaSet
+metadata: 
+  name: myapp-replicaset
+  labels: 
+    app: myapp
+    type: front-end
+spec: 
+  template:
+    name: my-app
+      labels: 
+        app: myapp
+        type: frontend
+    spec: 
+      containers: 
+        - name: nginx
+          image: nginx
+  replicas: 3
+  # tell 3 replicas; 3 active pods should run with this template always
+  selector: #it is mandatory feild, while creating replicaset unlike in replication controller
+  # this is the major difference in Relication Controller and replicaset
+  # Replica set requires selector definition
+  # selector section helps replicaset identify what pods fall under it,
+
+  spec.template.metadata.labels #the labels under this template must match with the lables defined in the selector section, if it doesn't match, then apiserver rejects the replicaset definition file yaml
+  
+  # replicaset can also manage the pods that were not created by replicaset creation
+  # this can be acheived by defining the match labels/match expressions under selector
+  # whichever pods labels match these, if those pods are unmanaged then those pods can be managed by this replicaset
+  # ex: certain pods created before the creation replicaset, that match labelssepecified in the selector,replicaset will also take those pods into consideration when creating replicas
+
+
+  selector section:
+
+  # the selector field is mandatory in a ReplicaSet, and it supports both exact matching (matchLabels) and advanced set-based filtering (matchExpressions).
+  
+# Two Ways to Define a ReplicaSet Selector
+
+# • matchLabels (Equality-based): This works just like a ReplicationController selector by checking for exact key-value matches. Every label listed here must match the pod's labels for the ReplicaSet to manage it.
+
+it is a key : value ;both the key and value must match
+# if multiple keys are there then all those keys and values must match
+
+syntax:
+selector:
+  MatchLabels: 
+    key1: value1
+    key2: value2
+
+# • matchExpressions (Set-based): This lets you filter pods using operators like In, NotIn, Exists, and DoesNotExist. For example, you can manage pods where the tier label is either frontend or backend.
+
+syntax:
+
+selector:
+  MatchExpressions: 
+    - key: Key_name1
+      operator: operator_name(IN, NotIN, Exists, DoesNotExist)
+      values: 
+        - value1
+        - value2
+        - value3
+   
+    - key: key_name2
+      operator: operator_name(IN, NotIN, Exists, DoesNotExist)
+      values: 
+        - value1
+        - value2
+        - value3
+-------------------------
+
+if both Matchlabels and MatchExpressions defined, then both must match
+
+a pod must satisfy both matchLabels and matchExpressions simultaneously to be managed by this ReplicaSet.
+In Kubernetes, all conditions defined inside spec.selector are combined using a logical AND.
+• Between matchLabels and matchExpressions: Combined with AND (both sections must pass).
+• Multiple items inside matchLabels: Combined with AND (all listed labels must match).
+• Multiple items inside matchExpressions: Combined with AND (all expression blocks must pass).
+• Multiple values inside a single In expression: Combined with OR (the label value only needs to match one item from the list, such as prod OR staging).
+-------------
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: redis-rs
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis
+    matchExpressions:
+      - key: environment
+        operator: In
+        values:
+          - prod
+          - staging
+  template:
+    metadata:
+      labels:
+        app: redis
+        environment: prod  # Must satisfy both matchLabels and matchExpressions
+    spec:
+      containers:
+      - name: redis
+        image: redis
+
+
+Key Rules to Remember
+
+• Template Alignment: The labels inside spec.template.metadata.labels must match the rules defined in spec.selector. 
+
+If they do not match, the Kubernetes API server will reject the YAML file.
+
+• Immutable Field: Once you create a ReplicaSet, you cannot change its spec.selector without deleting and recreating the resource.
+• Adoption of Existing Pods: If unmanaged pods already exist in the namespace with labels matching the selector, the ReplicaSet will automatically adopt them as part of its replica count.
+
+
+
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: web-rs
+spec:
+  replicas: 2
+  selector:
+    matchExpressions:
+      - key: tier
+        operator: In
+        values:
+          - frontend
+          - backend
+      - key: environment
+        operator: NotIn
+        values:
+          - dev
+          - test
+      - key: team
+        operator: Exists
+      - key: deprecated
+        operator: DoesNotExist
+  template:
+    metadata:
+      labels:
+        tier: frontend      # Satisfies 'In'
+        environment: prod   # Satisfies 'NotIn' (neither dev nor test)
+        team: payments      # Satisfies 'Exists' (value can be anything)
+                            # 'deprecated' label is omitted, satisfying 'DoesNotExist'
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+
+
+How Each Operator Works
+
+• In: The pod must have the specified label key, and its value must match at least one item in the values list.
+• NotIn: The pod matches 
+# if its label value is not in the values list, 
+# or if the label key is completely missing from the pod.
+
+• Exists: The pod simply needs to have the label key present, regardless of its value (never include a values field with Exists).
+
+• DoesNotExist: The pod must not have that label key at all (never include a values field with DoesNotExist).
+
+-----------------------
+
+# to create a replicaset
+
+kubelet create -f replicaset01.yaml
+
+# to view replicas
+kubectl get replicaset
+
+# to view the pods(replicas under replicaset)
+kubectl get nodes
+
+kubectl delete replicaset myapp-replicaset
+# to delete replicaset and along with the pods it is managing
+
+kubectl replace -f replicaset-definition-file.yaml
+# used to update or replace the replicaset definition file
+
+# updates an existing ReplicaSet in your cluster by completely overwriting its configuration with the contents of your YAML file.
+
+What Happens When You Run It
+
+Full Overwrite: Unlike kubectl apply (which merges changes), replace replaces the entire live object definition a/c your file. Any field omitted from your YAML file is reset to its default value.
+# so if a pod image or container name is changed, then the change will carried upcoming pods, not on current pods
+
+• Must Already Exist: The ReplicaSet named in metadata.name must already be running in the cluster. If it does not exist yet, Kubernetes throws a NotFound error.
+
+• Pod Template Behavior: If you updated spec.replicas, Kubernetes scales pods up or down immediately. However, if you changed spec.template (such as a new container image), existing pods are not restarted automatically; only newly created pods will use the updated template.
+
+# here kubectl replace -f replicaset-definition-file.yaml only updates the ReplicaSet's blueprint (spec.template), so existing running pods will keep running the old image until you delete them.
+# and for upcoming pods/new pods only the change will be replicated
+# for that you need to delete the exisiting pods
+kubectl delete pod -l <key>=<value>
+# (Replace <key>=<value> with your pod label, such as app=redis, or delete each pod individually with kubectl delete pod <pod-name>.)
+# or delete individually
+kubectl delete pod pod_name
+
+# Check that the recreated pods are running the updated container image.
+kubectl get pods -o wide
+
+
+
+Common Errors & Quick Fixes
+
+• Immutable Field Error: If you modified spec.selector or metadata.name, kubectl replace will fail because those fields cannot be edited in place. 
+
+# Add --force (kubectl replace --force -f replicaset-definition-file.yaml) to delete and recreate the ReplicaSet cleanly.
+# it will delete the existing replicaset and creates new one
+
+• Missing File Path: Make sure replicaset-definition-file.yaml is in your current terminal directory, or provide the full path to the file.
+
+# if you changed a image name in replicaset definition file and you want it to reflect 
+-----------
+
+if already have 3 pods running in cluster, you want those pods to be managed under replicasets
+
+you create the replicaset and include the selector section with filters that matches exactly with thos of of pods labels section
+
+# here since you are adopting already managed pods, you need template which is used to create new pods?
+
+# yes you need template, when one of the adopted pod goes down then replicaset needs this template to create new pod and get the replicas count matching
+
+once you create the replicaset with this yaml file, your pods will be adopted under this replicaset
+
+
+-----------
+
+scaling in replicaset
+
+lets we initially configured the replicase count to 3
+later we want to increase it to 6
+
+how do we update replicas count to 6 to scale up to 6 pods
+
+# 1)update the replicaset configuration(yaml) file with replicas to 6
+
+kubectl create -f replicaset-definition.yaml
+
+# -f -> file as input, it will take mentioned next to it as file
+
+# this will update the replica set to have 6 replicas, without downtime
+# if other changes are made in definition file like image name changes, then the changes will be reflected for upcoming pods
+
+2)kubectl scale --replicas=6 -f replicaset-definition.yaml
+
+# 3)you can also use replicaset name in type name format to increase replicas count
+
+syntax: kubectl scale --replicas=6 type replicaset_name
+
+ex: kubectl scale --replicas=6 replicaset my-app-replicaset
+
+# but with method 2 and 3 the even though your replicas count increases, your replicaset configuration(yaml file) in this file, the replicas count still remain 3
+
+# the changing relplicas count will not require downtime, as it only required changing in definition file
+
+# similarly when you scale down the replicas count, the apiserver will immediately terminate certain pods to bring it to desired state
+
+kubectl scale --replicas=2 replicaset my-app-replicaset
+
+
+# changing the image name, ports, env variable and other container specifications requires downtime
+# you can update the replicaset definition file with new spec ( image name, ports, env variable and other container specifications) and you can update the replicaset to use this updated definition file using kubectl create/replace command
+# but the changes only applies to new upcoming pods, so you need to delete the existing pod and post that new pods created will have the new specification
+4) we also have option to scale replicaset to scale based on traffic(without hardocding replicas count in yaml file)
+this is advanved topic
+
+
+---------
+
+kubectl get replicaset -o yaml
+
+# to view the replicaset yaml definition
+
+kubectl describe replicaset new-replica-set
+# to view the replicaset current status and to troubleshoot it
+
+# to troubleshoot more detail, describe individual pods to get more information
+kubectl describe pod new-replica-set-2qh74
+
+# look to state,reason,events etc
+
+
+# use: -o wide ;option while using kubectl get commands to view extra parameters like ip containers, images, selector in case of repilicaset
+# ip address, node, etc in case of pods
+
+----------
+
+kubectl edit replicaset replicaset_name
+
+# it opens the file live and you can edit it and save it
+
