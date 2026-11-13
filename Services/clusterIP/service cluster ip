@@ -1,0 +1,80 @@
+Kubernetes service: cluster IP
+
+a full stack web application typically has different kinds of pods hosting fifferent parts of application 
+
+a no of pods running front end
+a no of pods running back end
+a no of pods running database
+
+the web front end pods needs to communicate backend pods and backend pods needs to communicate to database pods
+
+what is the right way to eastablish connectivity b/w these tiers
+
+the pods all of them will have ip address assigned to them
+these ips are static till a pod is down or deleted and new pod will be created all the time
+
+so you cannot rely on these ips to communicate internally
+
+now the pod2 in frontend web tier pods needs to communicate to a backend pod in backend tier pods
+which one among the pods will it conect to and who decides that 
+
+a service, can help us groups the pod together and provide a single interface to access the pod in a group
+
+a service created to group all the backend pod together and provide a single interface for tohter pods to access this service
+the request is forwarded to one of the pod randomly
+
+similarly created one more service and allow the backend pod to access redis service
+
+this enables to easily deploy a microservice application in a kubernetes cluster
+
+each layer(group of pods) can easily scale up or down, without requiring manual intervention using replicaset and communication b/w various services(group of pods) 
+
+each service gets a ip and name assigned inside the cluster and that is the name that should be used by other paths to access the service 
+
+this type of service is known as cluster ip
+
+to create such service use definition
+
+apiVersion: v1
+kind: Service
+metadata: 
+  name: backend
+spec:
+  type: ClusterIP 
+  #by default if you dont specify type, it will take clusterIP
+  ports:
+    - targetport: 80
+    #targetport is where backend pods are listening on
+      port: 80
+    #port is where the clusterip service is exposed and listening
+  selector: 
+  #to link the service to set of pods we use selector
+    app: redis
+    type: database
+
+#create the service using
+kubectl create -f service-definition.yaml
+
+#to view the service
+kubectl get services
+
+the service can be access by other pods using the cluster ip or servicename
+bacause the cluster IP/servicename is permanent until manually deleted
+
+
+"""
+#pod definition file
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis-rc
+  label: 
+    app: redis
+    type: database
+spec:
+  containers:
+    - name: redis
+      image: redis
+"""
+

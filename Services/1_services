@@ -1,1 +1,209 @@
-Kubernetes Services
+Kubernetes Services enable communication between various components within and outside of the application
+
+Services helps us connect application(containers) together with other applications or users 
+
+for ex: our application has groups of pods running various section
+such as group of pod serving frontend loads to users, another group for runnin backend applications
+third group connecting to an external data source
+
+it is services that enables connectivity b/e these groups
+
+thus services enables loose coupling b/w microservices in our application
+
+a Kubernetes service is an object just like pods, replica sets, or deployments
+
+one of its use is listen to a port on the node and forward requests on that port to a port on the pod running web application and this type of service is called node port service
+
+service types
+1) node port : service makes internal pod accessible on a port on the node
+2) cluster ip : service creates a virtual IP inside the cluster to enable the communications b/w diff pods
+or b/w set of frontend pods and backend pods
+3) load balancer : it provisions a load balancer for our application in supported cloud providers
+
+Node Port Kubernetes service:
+
+pod will be having a network namespace and along with that a pod will have IP(eg: 10.244.0.2)
+
+Target port: it is the pod port which pod is listening(eg: 80)
+this is where service forwards requests to
+
+(eg:80)Port: port on service, where service listens and forwards to Target port(pod port)
+
+the service is like a virtual server inside the node
+inside the cluster it will have its own ip address, it is called cluster IP of the service(eg: 10.106.1.12)
+
+Node Port: Port on the node itself, which the we use to access the web server externally
+Node port range(30000-32767), is available only in this range
+
+
+                  +-----------------------------------------------------------------+
+                  |                                                                 |
+                  |     +------------------------+                                  |
+                  |     |                        |  (2) Port                        |
+(3) NodePort    +---+   |   Service              |---+                              |
+    Range:      | 3 |-->|   IP: 10.106.1.12      |80 |---+                          |
+  30000-32767   | 0 |   |                        |---+   |     (1) Target Port      |
+                | 0 |   +------------------------+       |      +----+              |
+                | 0 |                                    +----->| 80 |              |
+                | 8 |                                    +------+----+----------+   |
+                +---+                                    |      10.244.0.2      |   |
+                  |                                      |                      |   |
+                  |                                      |      [ Python ]      |   |
+                  |                                      |                      |   |
+                  |                                      |      ( Pod )         |   |
+                  |                                      +----------------------+   |
+                  |                                                                 |
+                  | ( Node )                                                        |
+                  +-----------------------------------------------------------------+
+
+
+How to create server?
+just like other object, we use yaml definition file to create service
+
+High level structure of file remains same
+
+apiVersion: v1
+kind: Service
+metadata: 
+  name: myapp-service
+  labels:
+    app: front-service
+spec: #this is where we define services, where it differs from other objects
+  type : NodePort #type of service
+  ports: 
+    - targetPort: 80
+      port: 80
+      nodePort: 30008
+
+      #out of these 3(targetport, port, nodeport), the only mandatory feild is port
+      #if you dont provide target port it is assumed to be same as port
+      #if you dont provide nodeport, a free port in valid range(30000-32767) is automatically allocated
+
+  #ports section is an array/list, so you can have multiple such port mappings in a single service
+  # - indicates first element
+
+#now we need to conect service to the pod, here we just mentioned targetport but we didnt mentioned which pods targetport(there could be 100s of pods running with port 80)
+
+#we will use labels and selectors to connect service and pods together
+#selector will be inside spec
+  
+  selector: 
+    app: redis
+    type: database
+    
+    #mention the labels under selector section, whichever pods match those labels will connect to the service
+
+
+"""
+#pod definition file
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis-rc
+  label: 
+    app: redis
+    type: database
+spec:
+  containers:
+    - name: redis
+      image: redis
+"""
+
+#now create the service
+kubectl create -f service-definitio.yaml
+
+#once the service is created, you can describe the server
+kubectl describe service webapp-service
+
+as per the labels in the pods and selector rule, the service will link to pods backend
+you can see those IP of the pods and port of pod in endpoint section of the service
+
+#to see the created services
+kubectl get services
+
+now you can connect the pod application using nodeport and node ip
+
+so far it was service talking to single pod
+
+in production we will have multiple pods running for same web application and function
+# here the service when it is created, it will look for pods having same labels 
+# the service then automatically selects all the pod endpoints to forward the external requests coming from the user
+
+service uses "random" algorithm to send traffic to multiple pods connected to same port(service port)
+session affinity: yes
+
+thus service acts as built in load balancer to distribute traffic across pods
+
+ [ User ]
+                                        |
+                                        v
++---------------------------------------------------------------------------------+
+| 192.168.1.2                           |                                  30008  |
+|                                       |                                  +----+ |
+|                                       v                                  |    | |
+|   +------------------------------------------------------------------+   |    | |
+|   |                          Service                                 |---+    | |
+|   +------------------------------------------------------------------+        |
+|      |                                |                               |       |
+|      v                                v                               v       |
+| +-------------------+              +-------------------+              +-------------------+
+| | 10.244.0.3        |              | 10.244.0.2        |              | 10.244.0.4        |
+| |                   |              |                   |              |                   |
+| |    [ Python ]     |              |    [ Python ]     |              |    [ Python ]     |
+| |                   |              |                   |              |                   |
+| |     ( Pod )       |              |     ( Pod )       |              |     ( Pod )       |
+| +-------------------+              +-------------------+              +-------------------+
+|                                                                                 |
+| ( Node )                                                                        |
++---------------------------------------------------------------------------------+
+
+
+what happens when pods(web application pods) are distirbuted across multiple nodes of a cluster for HA and fault tolerance
+
+when we create a service, without having us to do any additional configuration, kubernetes automatically creates a service that spans across all the nodes in the cluster and maps the target port to the same node port on all the nodes in the cluster
+
+this way you can access your aplication using the ip of any node in the cluster and using same nodeport
+
+                                    [ User ]
+                                        |
+              +-------------------------+-------------------------+
+              |                         |                         |
+              v                         v                         v
++--------------------+----+ +--------------------+----+ +--------------------+----+
+| 192.168.1.2        |30008 | 192.168.1.3        |30008 | 192.168.1.4        |30008
+|                    +----+ |                    +----+ |                    +----+
+|                      |  | |            -----------|   |                       | |
+|                      |-----------------|--------------------------------------| |
+|                           |            |              |                         |
+| ==|=====================|=|===|=====================|=|===|=====================|==
+| ||[                     Service (NodePort: 30008)                                 ] ||
+| ==|=====================|=|===|=====================|=|===|=====================|==
+|   |                     | |   |                     | |   |                     |
+|   v                     | |   v                     | |   v                     |
+| +-------------------+   | | +-------------------+   | | +-------------------+   |
+| | 10.244.0.3        |   | | | 10.244.0.2        |   | | | 10.244.0.4        |   |
+| |                   |   | | |                   |   | | |                   |   |
+| |    [ Python ]     |   | | |    [ Python ]     |   | | |    [ Python ]     |   |
+| |                   |   | | |                   |   | | |                   |   |
+| |     ( Pod )       |   | | |     ( Pod )       |   | | |     ( Pod )       |   |
+| +-------------------+   | | +-------------------+   | | +-------------------+   |
+|                         | |                         | |                         |
+| ( Node )                | | ( Node )                | | ( Node )                |
++-------------------------+ +-------------------------+ +-------------------------+
+
+
+
+curl:// http://192.168.1.2:30008
+curl:// http://192.168.1.3:30008
+curl:// http://192.168.1.4:30008
+
+in any case. whether it be a single pod on a single nod, multiple pods on a single node or multiple pods on multiple nodes, the service is created exactly the same without you having to do any additional steps during service creation.
+
+when pods are removed or added, the service automatically updated, making it highly flexible and adaptive
+
+
+  
+
+
+                                   
