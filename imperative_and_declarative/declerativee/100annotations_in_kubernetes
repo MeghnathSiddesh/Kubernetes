@@ -1,0 +1,44 @@
+In Kubernetes, an annotation is a key-value pair used to attach arbitrary, non-identifying metadata to objects like Pods, Services, or Deployments. Unlike labels, Kubernetes does not use annotations to select, group, or filter objects. Instead, they store helpful information for external tools, automation scripts, and human operators.
+
+Common Uses for Annotations
+
+• Tool Configuration: Third-party tools like Ingress controllers, service meshes, and monitoring agents read annotations to configure behavior. For example, an Ingress annotation can set up SSL certificates or traffic routing rules.
+
+• Build and Release Info: Teams store details like Git commit hashes, build timestamps, image registry URLs, or release notes directly on the resource.
+
+• Deployment Tracking: Kubernetes itself uses annotations under the hood to track rollout history and store the last-applied configuration for kubectl apply.
+
+• Team Ownership: Organizations attach contact details, Slack channels, or links to runbooks so on-call engineers know who manages a failing resource.
+
+Annotations vs. Labels
+
+
+Feature	                           Annotations	                            Labels
+Primary Purpose	-> Store extra metadata for tools and humans.	Identify, group, and select objects.
+
+Used in Selectors -> No. Cannot be queried by Kubernetes controllers.	Yes. Used by Services, Deployments, and kubectl filters.
+
+Character Limits ->	Large. Values can hold up to 256 KB of data.	Strict. Values are limited to 63 characters.
+
+Allowed Content	-> Any text, including JSON, URLs, and multi-line strings.	Simple alphanumeric strings, dashes, dots, and underscores.
+
+
+Example YAML Configuration
+
+Annotations live inside the metadata block of a Kubernetes manifest:
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-server
+  labels:
+    app: frontend
+  annotations:
+    owner: "platform-team@example.com"
+    git-commit: "a1b2c3d4"
+    prometheus.io/scrape: "true"
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+

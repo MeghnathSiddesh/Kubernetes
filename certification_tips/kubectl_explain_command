@@ -1,0 +1,29 @@
+kubectl api-resources
+
+it will list all the resources
+
+The kubectl api-resources command prints a complete list of all supported resource types available on your Kubernetes cluster's API server. It helps you check exact resource names, short aliases, API groups, and whether a resource is bound to a specific namespace.
+
+Output Columns Explained
+
+Running kubectl api-resources displays five columns of information:
+• NAME: The plural name of the resource used in commands (such as pods or deployments).
+• SHORTNAMES: Common abbreviations you can type to save time (such as po for pods or svc for services).
+• APIVERSION: The API group and version required in the apiVersion field of your YAML manifests (such as v1 or apps/v1).
+• NAMESPACED: Shows true if the resource lives inside a namespace, or false if it applies across the entire cluster (like nodes).
+• KIND: The exact capitalized name used in the kind field of your YAML manifests (such as Pod or Deployment).
+
+--------------------
+once you got resource types, you can use explain command to understand the resource
+kubectl explain <object_type>
+
+The kubectl explain command prints the official API documentation for any Kubernetes resource and its configuration fields directly in your terminal. It pulls schema details straight from your cluster's OpenAPI specification, showing field descriptions, expected data types, and whether a field is required.
+
+You can use dot notation to drill down from a top-level resource into deeply nested YAML fields:
+• Inspect a top-level resource: Run kubectl explain pod to view the overview, API version, and top-level fields (apiVersion, kind, metadata, spec, status) of a Pod.
+• Drill into nested fields: Run kubectl explain pod.spec.containers to see all available settings for a container, such as image, ports, and resources.
+• Check a specific property: Run kubectl explain deployment.spec.replicas to verify its exact data type (such as integer) and default behavior.
+
+kubectl explain pod
+kubectl explain pods.spec
+kubectl explain pods --resursive

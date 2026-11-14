@@ -1,0 +1,97 @@
+i have edited the objects using kubectl edit, set, scale etc
+now i want to make it permanet, how?
+
+To make your live cluster changes permanent, you need to export the live configuration back into a YAML file and apply it declaratively using kubectl apply. This brings your local files and version control back into sync with the cluster.
+
+
+Step 1: Export the Live Configuration
+
+Run kubectl get with the -o yaml flag to save the current state of the resource to your local machine.
+• Command: kubectl get deployment nginx -o yaml > nginx-deployment.yaml
+
+• Note: You can do this for any resource you modified (service, replicaset, configmap, etc.).
+
+Step 2: Clean Up Cluster-Generated Metadata
+
+When you export a live resource, Kubernetes includes temporary runtime fields that should not be stored in your permanent configuration file. Open nginx-deployment.yaml and delete these sections:
+
+• metadata.uid, metadata.resourceVersion, metadata.generation, and metadata.creationTimestamp
+• metadata.managedFields (This is often a long block tracking field ownership; delete the entire block).
+• status (The entire status: section at the bottom of the file, which tracks live pod counts and conditions).
+(Tip: If you have the kubectl-neat plugin installed, you can run kubectl get deployment nginx -o yaml | kubectl neat > nginx-deployment.yaml to strip all of these fields automatically.)
+
+Step 3: Commit and Apply Declaratively
+
+Once your file is clean, establish it as your permanent source of truth.
+
+• Save to Version Control: Commit the updated nginx-deployment.yaml file to your Git repository.
+• Sync with kubectl apply: Run kubectl apply -f nginx-deployment.yaml.
+Running kubectl apply updates the last-applied-configuration annotation on the live object, ensuring future updates won't trigger conflict warnings or wipe out your changes.
+
+----------------------------------------------------------------------
+
+if objects were created imperatively (via kubectl create, run, or expose),
+
+if you edited the objects are live(using kubectl edit, set, etc)
+
+ if you do not have local YAML files for them yet, and they lack the tracking annotation required for declarative management.
+To make them permanent, you must extract their live configurations into new YAML files, strip out the cluster-generated runtime data, and adopt them into kubectl apply.
+
+Step 1: Export Each Live Object to a File
+
+Save the current state of every resource you created and modified into local YAML files.
+
+• Export Deployment: kubectl get deployment <name> -o yaml > deployment.yaml
+• Export Service: kubectl get service <name> -o yaml > service.yaml
+• Export Everything at Once (Optional): kubectl get deploy,svc -o yaml > all-resources.yaml
+
+Step 2: Strip Out Cluster-Specific Metadata
+
+Open each exported YAML file in your text editor and delete the temporary fields that Kubernetes generated when the object was running. Keep only apiVersion, kind, metadata (with just name, namespace, and labels), and spec.
+Delete these specific fields:
+• metadata.uid
+• metadata.resourceVersion
+• metadata.generation
+• metadata.creationTimestamp
+• metadata.managedFields (Delete this entire block).
+• status (Delete the entire status: block at the very bottom of the file).
+
+Step 3: Adopt the Files with kubectl apply
+
+Now that you have clean configuration files, tell Kubernetes to start tracking them declaratively.
+
+• Run Apply: kubectl apply -f deployment.yaml (and repeat for your other files).
+
+• What This Does: Even though the objects already exist, 
+running kubectl apply attaches the kubectl.kubernetes.io/last-applied-configuration annotation to them in the cluster.
+(Note: You might see a one-time warning saying kubectl apply should be used on resource created by either kubectl create --save-config or kubectl apply. This is completely normal and expected during this transition—it simply confirms that Kubernetes is adding the tracking annotation for the first time.)
+
+Step 4: Save to Version Control
+
+Commit these clean YAML files to a Git repository. From this point forward, make all future changes by editing these files and running kubectl apply -f <filename>.yaml instead of using imperative commands.
+
+----------
+
+if you created the objects using kubectl create -f config.yaml, your local config.yaml file is now out of date, and the live objects in your cluster do not have the last-applied-configuration tracking annotation that kubectl apply expects.
+
+To make your live changes permanent, you need to overwrite your outdated config.yaml with the current live state, clean up the cluster-generated runtime fields, and transition the file to kubectl apply.
+
+
+Step 1: Overwrite config.yaml with the Live State
+
+Export the live configuration from the cluster directly into your existing config.yaml file (or a temporary file first so you can compare them).
+• Single resource in file: kubectl get <kind> <name> -o yaml > config.yaml
+• Multiple resources in file: kubectl get deploy,svc -o yaml > config.yaml (Adjust the resource types to match what is inside your original file).
+
+
+Step 2: Clean Up Cluster-Generated Fields
+
+
+Step 3: Transition to kubectl apply
+Because you originally used kubectl create -f, Kubernetes is not tracking your local file changes yet. Run kubectl apply once to adopt the updated config.yaml as your permanent, declarative source of truth.
+• Run Apply: kubectl apply -f config.yaml
+• Expect a One-Time Warning: Kubernetes will display a warning saying Warning: resource ... is missing the kubectl.kubernetes.io/last-applied-configuration annotation. This is normal—it means Kubernetes is attaching the tracking annotation now so future updates work cleanly.
+
+Step 4: Commit to Version Control
+
+Save and commit your updated config.yaml to Git. From now on, avoid using kubectl create, edit, set, or scale on these objects—instead, edit config.yaml directly and run kubectl apply -f config.yaml.

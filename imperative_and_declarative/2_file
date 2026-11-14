@@ -1,0 +1,33 @@
+in kubernetes world the imperative way of managing infrastructure is using commands like
+
+kubectl run --image=nginx nginx
+#this will create a pod
+
+kubectl create deployment --image=nginx nginx
+#this will create a deployment
+
+kubectl expose deployment nginx --port 80
+#this will create a service to expose exisiting deployment
+
+kubectl edit deployment nginix
+#this used to edit nginx deployment
+#kubectl edit -> used to edit exisiting object
+
+kubectl scale deployment nginx replicas=5
+#for scaling replicas in deployment
+
+kubectl set image deployment nginix nginix=nginix.1.10
+#updating the image in pods in exisiting deployment, using kubectl set image
+
+#we also use object configuration file to create and manage objects
+
+#creating an object using configuration file
+kubectl create -f nginx.yaml
+
+#editing an object created via configuration file
+kubectl replace -f nginix.yaml
+
+#deleting the objects and resources created via configuration file
+kubectl delete -f nginix.yaml
+
+all of these are imperative approach in creating and managing objects in kubernetes

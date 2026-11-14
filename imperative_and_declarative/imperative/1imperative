@@ -1,0 +1,201 @@
+kubectl run --image=nginx nginx
+#this will create a pod
+
+---
+kubectl create deployment --image=nginx nginx
+#this will create a deployment
+
+#kubectl create ;using config file or directly in command
+#will throw error if the resource already exists
+
+Unlike kubectl apply, which creates or updates resources declaratively, kubectl create is strictly imperative and will fail with an AlreadyExists error if the resource is already running in your cluster.
+
+
+Common CLI Examples
+
+• Create a Namespace: kubectl create namespace dev
+• Create a Deployment: kubectl create deployment nginx --image=nginx --replicas=3
+• Create a Service: kubectl create service clusterip my-svc --tcp=80:8080
+• Create a ConfigMap: kubectl create configmap app-config --from-literal=ENV=prod
+• Create a Secret: kubectl create secret generic db-pass --from-
+
+One of the most practical uses of kubectl create is generating clean YAML boilerplates without actually creating anything in your cluster. Combine --dry-run=client and -o yaml to save the output to a file:
+
+kubectl create deployment nginx --image=nginx --dry-run=client -o yaml > nginx-deploy.yaml
+----
+kubectl expose deployment nginx --port 80
+#this will create a service to expose exisiting deployment
+
+------------
+kubectl edit deployment nginix
+
+#this used to edit nginx deployment
+
+The command kubectl edit allows you to directly modify the configuration of a live Kubernetes resource in your default terminal text editor.
+
+How It Works
+
+• Fetches Live State: Kubernetes downloads the current configuration of the specified resource (like a Pod, Deployment, or Service) as a temporary YAML file.
+"""
+(if the object is created via configuration file, it will not fetch original configuration file
+it will just download the current config file as new and opens in editor, you can make your changes and save it and execute it)
+(if object is not created using config file, like kubectl create deployment --image=nginx nginx etc
+it will fetch the configuration a/c to current state of object and you can edit the configuration)
+(all of this will happend in in-memory, no new files created or modified original file in dosk)
+"""
+• Opens Text Editor: The file automatically opens in your system's default editor (usually vi or vim on Linux/macOS, and notepad on Windows).
+
+• Applies Changes: Once you save your edits and close the editor, kubectl automatically validates and applies the updated configuration back to the live cluster.
+
+
+Common Syntax & Examples
+
+The basic format is kubectl edit <resource-type>/<resource-name>.
+• Edit a Deployment: kubectl edit deployment/nginx (Often used to quickly update an image version or replica count).
+• Edit a Service: kubectl edit service/nginx (Useful for changing a service type from ClusterIP to NodePort).
+• Edit in a Specific Namespace: kubectl edit pod/my-pod -n my-namespace
+• Use a Different Editor: KUBE_EDITOR="nano" kubectl edit deployment/nginx
+
+Important Caveats
+
+• Imperative Approach: Using kubectl edit is an imperative action, meaning your live cluster will drift out of sync with any local YAML files or Git repositories you maintain.
+• Immutable Fields: Certain fields (like a Pod's container image or a Service's cluster IP) cannot be changed after creation; if you edit them, Kubernetes will reject the save and leave a temporary error file on your machine.
+
+You should use kubectl edit for quick, temporary changes in development, testing, or emergency troubleshooting when you need to update a live resource immediately without modifying local YAML files.
+
+You can run kubectl edit on resources created using any of the following approaches:
+• Declarative Manifests: Objects created from YAML or JSON files via kubectl apply -f or kubectl create -f.
+• Imperative Commands: Objects created directly via CLI commands like kubectl run, kubectl expose, or kubectl create deployment.
+• Package Managers & Tools: Resources deployed automatically by Helm charts, Kustomize, Terraform, or GitOps operators like ArgoCD.
+
+One Caveat to Keep in Mind
+
+While kubectl edit will always work on resources created with kubectl apply, you will see a warning if you later run kubectl apply on the same local YAML file. Because kubectl apply relies on a last-applied-configuration annotation to track changes, manual edits made via kubectl edit can cause conflicts or get overwritten the next time you apply your file.
+
+------------
+kubectl scale deployment nginx replicas=5
+#for scaling replicas in deployment
+
+The standard format is kubectl scale --replicas=<count> <resource-type>/<resource-name>.
+
+• Scale up a Deployment: kubectl scale --replicas=5 deployment/nginx (Creates 5 running pods of nginx).
+
+• Scale down to zero: kubectl scale --replicas=0 deployment/nginx (Stops all pods while keeping the deployment configuration intact).
+
+• Scale multiple deployments at once: kubectl scale --replicas=3 deployment/nginx deployment/redis
+
+
+Useful Flags
+
+• --current-replicas=<count>: Acts as a safety check. Kubernetes will only perform the scaling operation if the current number of replicas matches the number you specify (e.g., kubectl scale --current-replicas=2 --replicas=4 deployment/nginx).
+• --all: Scales all resources of the specified type within a namespace (e.g., kubectl scale --replicas=0 deployment --all
+
+When you run kubectl scale on a ReplicaSet or deployment created from a configuration file, it immediately updates the live number of running pods in the cluster, while leaving your local YAML file completely unchanged.
+
+
+What Happens When You Re-apply the File Later
+
+Because your local file and the live cluster are now out of sync, your next action depends on which command you use to update the file later:
+
+• kubectl apply -f <file>.yaml: Kubernetes overwrites your manual scaling(using kubectl scale) and resets the live ReplicaSet back to the original replica count written in your YAML file.
+
+• kubectl replace -f <file>.yaml: Kubernetes also resets the live ReplicaSet back to the count in your YAML file, and may throw an error or warning if the resource metadata conflicts.
+
+• Deleting and Recreating: If you delete the ReplicaSet and run kubectl create -f <file>.yaml, it will launch with the original replica count from the file.
+
+One Crucial Caveat (Deployments vs. ReplicaSets)
+
+If your ReplicaSet is managed by a Deployment rather than created as a standalone ReplicaSet, running kubectl scale directly on the ReplicaSet will not stick. The Deployment controller continuously monitors its ReplicaSets and will immediately revert your manual scaling back to whatever replica count is set on the Deployment. In that case, you must scale the Deployment instead (kubectl scale deployment/<name>).
+
+Important Note on Autoscaling
+
+If you have a Horizontal Pod Autoscaler (HPA) attached to your deployment, any manual changes made with kubectl scale will be temporary. The HPA will automatically override your manual replica count within a few minutes based on current CPU or memory usage.
+
+-------------
+kubectl set image deployment nginix nginix=nginix.1.10
+#updating the image in pods in exisiting deployment, using kubectl set image
+
+#kubectl set ; used to edit the configurations of the objects live
+#it will not open any text editor to enter your changes(unlike kubectl edit), instead it expects changes live in the command itself
+
+The command kubectl set directly updates specific, targeted fields of existing Kubernetes resources from the command line without opening a text editor or modifying YAML files.
+
+It works as an imperative shortcut for common updates like changing a container image, adding environment variables, or adjusting CPU and memory limits.
+
+Most Common Subcommands
+
+• kubectl set image: Updates the container image for a workload, triggering a rolling update on Deployments.
+	• Example: kubectl set image deployment/nginx nginx=nginx:1.25
+
+• kubectl set env: Adds, updates, or removes environment variables on containers.
+	• Example: kubectl set env deployment/nginx ENV=production
+	• Remove a variable: kubectl set env deployment/nginx ENV- (using a trailing minus sign)
+
+• kubectl set resources: Configures CPU and memory requests or limits for containers.
+	• Example: kubectl set resources deployment/nginx --limits=cpu=200m,memory=512Mi
+
+• kubectl set serviceaccount: Changes the ServiceAccount assigned to a workload's pods.
+	• Example: kubectl set serviceaccount deployment/nginx my-service-account
+
+• kubectl set selector: Updates the label selector on a Service.
+	• Example: kubectl set selector service/nginx app=nginx-v2
+
+Why Use It Over kubectl edit
+
+• Automation Friendly: Because it is a single, non-interactive command, you can easily embed kubectl set inside CI/CD pipelines and shell scripts.
+
+• Safer for Targeted Changes: It modifies only the exact field you specify, avoiding accidental formatting errors or unintended edits inside a live YAML file.
+
+• Configuration Drift Warning: Just like kubectl edit and kubectl scale, any changes made with kubectl set only affect the live cluster and will not update your local YAML files.
+
+---------------------
+
+
+#we also use object configuration file to create and manage objects
+
+#creating an object using configuration file
+kubectl create -f nginx.yaml
+
+#editing an object created via configuration file
+kubectl replace -f nginix.yaml 
+
+kubectl replace -f file.yaml ; 
+
+when you want to update the current configuration of your object or (you have already modifed something manually using commands and want to make those changes effective in configuration file)
+
+The command kubectl replace updates an existing Kubernetes resource by completely overwriting its live configuration with a new specification from a file or standard input.
+
+Unlike kubectl apply, which merges changes cleanly, kubectl replace is strictly imperative and requires the target resource to already exist in the cluster.
+
+--
+Basic Syntax & Usage
+
+• Standard Replace: kubectl replace -f deployment.yaml (Overwrites the live deployment with the exact contents of deployment.yaml).
+
+• Force Replace (Delete and Recreate): kubectl replace --force -f pod.yaml 
+
+(Deletes the existing resource created using that file completely and creates a brand-new one as per the file).
+--
+• Fails if Missing: If the resource does not already exist in the cluster, the command fails with a NotFound error.
+or if it is trying to modify the immutable feilds
+"""
+• Resets Manual Changes: If you previously modified a live resource using kubectl scale, kubectl edit, or kubectl set, running kubectl replace -f will wipe out those live changes and revert everything back to your file.
+
+kubectl replace is majorly used when objects are created imperatively using kubectel create or expose
+
+
+When to Use --force
+
+• Updating Immutable Fields: Certain Kubernetes fields (such as a Pod's container image or a Job's pod template) cannot be modified in place. Adding --force bypasses this restriction by tearing down the old object and building a fresh one.
+• Expect Brief Downtime: Because --force deletes the resource before recreating it, any running pods or services managed by that object will experience a brief interruption.
+"""
+
+
+-------------
+
+#deleting the objects and resources created via configuration file
+kubectl delete -f nginix.yaml
+
+it will delete them live, it will not edit the nginx.yaml file
+
+all of these are imperative approach in creating and managing objects in kubernetes

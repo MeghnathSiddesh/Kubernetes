@@ -1,0 +1,149 @@
+1)whatever we were doing in kubernetes creating pods, replciasets, depolyments, we were doing it within a namespace 
+
+this namespace is known as default namespace and it is created by kubernetes automatically when the cluster is first setup 
+
+2) kubernetes creates a set of pods and services for its internal purpose, such as those required by networking solution, the DNS,etc. 
+to isolate these from the user and prevent you from accidentally delting or modifying the servcies 
+kubernetes creates them under another namespace created at cluster startup named kube system
+
+3)a third namespace created by kubernetes automatically is called kube public.
+this is where the resources that should be made available to all users are created
+
+if your environment is small, then you can continue working in default namespace
+for enterprise or production purposes you should consider use of namespaces
+
+you can also create your own namespaces
+
+if you want to use the same cluster for dev and prod environment, but at same time isolate the resources b/w dev and prod, you can create a diff namsepace for each environment
+this way you can isolate them and you prvent when you accidentally modify prod when you want to modify prod 
+
+each of these namespaces can have its own set of policies that define who can do what 
+
+you can also assign quota of resource(cpu, ram, rom etc..) to each of these namespaces, that way each namespaces is gauranteed a certain amount and does not use more than its allowed limit
+
+----------------------------
+
+the resources within a namespace can each other directly by their names
+
+namesapce1: have web-app, db(also have db-servcie for connecting), backend pods
+
+dev(namespace): have web-app, db, backend pods
+
+web-app can reach the db service(a kubernetes service) using hostname db service 
+mysql.connect("db-service")
+
+web-app pod in namespace1 can reach a servcie in another namespace as well, for this you must append the name of namespace to the service
+
+mysql(db-service.dev.svc.cluster.local)
+
+the DNS: resource_name.namespace_name.resource_type.cluster.local
+
+resource_name : the resource you are trying to access
+namespace: namespace where the resource exists
+resource_type: type of resource (pod, service, etc..)
+resource type eg: svc
+cluster.local : kubernetes domain
+
+eg: db-service.dev.svc.cluster.local
+
+you are able to do this because when a service is created, as DNS entry is automatically in this format
+
+cluster.local -> default domain of the kubernetes cluster
+svc -> subdomain for service, it says the domain is for servcie
+dev -> namespace where the resource resided
+service_name -> service which the whoel domain is referring
+
+------------------------
+
+#this command only lists the pods in default namespace
+kubectl get pods
+
+#to list pods in non default namsepace
+kubectl get pods --namespace=namespace_name
+
+kubectl get pods --namespace=kube-system
+
+#when you create a pod, it is created in default namespace
+
+#to create a pod in no default namespace use
+
+kubectl create -f definition.yaml --namespace=dev
+
+#or else you can define the namespace inside the definition file iteslf
+
+#ex: to create a pod in particular namespace, use the namsepace option under metadata section in definition file
+
+apiVersion: 
+kind: 
+metadata: 
+  namespace: dev
+  name: my-app
+  labels: 
+    app: myapp
+    type: frontend
+spec: 
+  containers: 
+    - name: nginx
+      image: nginx
+
+kubectl create -f definition.yaml
+
+------
+
+creating namespace
+
+#like other objects, use namespace definition file
+
+apiVersion: v1
+kind: namespace
+metadata:
+  name: dev #name of namespace
+
+#run
+kubectl create -f definition.yaml
+
+#another way to create namespace 
+kubectl create namespace dev
+
+------------
+
+#by default you will be inside default namespace, to use or access resource inside other namespace you have to use --namespace=dev option
+
+#if you want to switch to other namespace, rather than everytime giving --namespace option
+
+kubectl config set-context $(kubectl config current-context) --namespace=dev
+
+#$(kubectl config current-context) -> identify the current context
+#and then locks the current context to dev namespace
+
+#contexts are used to manage multiple clusters and multiple environments from the same management system
+
+#now you can directly configure dev namespace resources
+#if you want to configure other namespace resource like prod, use --namespace=prod
+
+#to view pods in all namespaces
+kubectl get pods --all-namespaces
+
+-------------
+
+#to limit resources in a namespace, create a resource quota to create one
+
+#use definition file for ResourceQuota
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-resource
+  namespace: dev #namespace which you want to limit the resources
+
+spec:
+#under spec section define the the limts of the namespace
+  hard:
+    pods: "10"
+    requests.cpu: "4"
+    requests.memory: 5Gi
+    limits.cpu: "10"
+    limits.memory: 10Gi
+
+#create the ResourceQuota for the namespace
+kubectl create -f definition.yaml

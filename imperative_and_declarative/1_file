@@ -1,0 +1,71 @@
+so far we have seen creating and managing objects in kubernetes
+
+we created objects directly by running commands, as well as using object configuration files
+
+in IAC world there are diff ways of approach in managing the infra, there are cliassified are imperative and decalerative approaches
+
+
+1. Imperative Approach ("How to do it")
+
+You write an explicit, step-by-step procedural script detailing the exact sequence of commands and API calls the system must execute to build the infrastructure.
+
+• How it works: If you want to create a server and attach a disk, you explicitly code: 
+1) Call API to spin up VM; 
+2) Wait for status OK; 
+3) Call API to create disk; 
+4) Attach disk to VM ID. 
+
+The tool does not automatically figure out an end-state; it just runs your recipe.
+
+• Key Characteristics:
+
+	• Fine-grained Control: Full control over exact execution order, conditional logic, loops, and intermediate states.
+
+	• Less "Magic", More Code: Often written in general-purpose programming languages (Python, Bash, PowerShell) or procedural configuration files.
+
+"""
+	• Lower Idempotency by Default: If you run an imperative script twice, it might fail or try to recreate existing items "unless you manually write logic to check if things already exist."
+"""
+
+• Popular Tools:
+	• Ansible (supports procedural/imperative tasks alongside some declarative modules)
+	• Chef
+	• Custom scripts using Python (e.g., AWS SDK / Boto3), Bash, or PowerShell
+
+
+Imperative
+
+1. Provision a VM by the name ‘web-server’
+2. Install NGINX Software on it
+3. Edit configuration file to use port ‘8080’
+4. Edit configuration file to web path ‘/var/www/nginx’
+5. Load web pages to ‘/var/www/nginx’ from GIT Repo - X
+
+
+2. Declarative Approach ("What you want")
+
+You define the desired end-state of your infrastructure (e.g., "I want an S3 bucket and two EC2 instances with these properties"), and the IaC tool figures out the exact steps needed to reach and maintain that state.
+
+• How it works: The tool compares the current actual state of your cloud/servers against your configuration file, calculates the difference (a "plan"), and applies only what needs to be created, updated, or deleted.
+
+• Key Characteristics:
+
+	• Idempotent: Running the exact same code multiple times yields the same result without making duplicate or broken resources.
+"""
+	• Handles Drift: Automatically detects and helps correct manual changes made outside the code (configuration drift).
+    it is intelligent to understand the changes made in configuration file and apply it 
+"""
+
+• Popular Tools:
+	• Terraform / OpenTofu
+	• AWS CloudFormation
+	• Azure Bicep
+	• Kubernetes Manifests (YAML)
+
+Declarative
+
+• VM Name: web-server
+• Package: nginx
+• Port: 8080
+• Path: /var/www/nginx
+• Code: GIT Repo - X

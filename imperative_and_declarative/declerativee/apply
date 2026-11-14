@@ -1,0 +1,60 @@
+kubectl apply is a declarative Kubernetes command used to create or update or delete cluster resources based on a configuration file (usually YAML or JSON). Instead of telling Kubernetes how to change an object step-by-step, you define the desired end state in a file, and kubectl apply figures out what needs to be created, modified, or removed to match that state.
+
+How kubectl apply Works Under the Hood
+
+To make intelligent updates without wiping out changes made by other controllers (like Horizontal Pod Autoscalers), kubectl apply performs a three-way merge using three versions of the resource:
+
+• Local Configuration File: The YAML or JSON file you are currently passing to the command.
+
+• Last-Applied Configuration: A JSON string stored inside the live object's metadata (kubectl.kubernetes.io/last-applied-configuration annotation) from the previous time apply was run.
+
+• Live Object Configuration: The current state of the resource running in the Kubernetes cluster, including fields added dynamically by Kubernetes itself.
+
+By comparing these three versions, Kubernetes calculates a patch:
+
+1. Added fields: Present in your local file, missing from the live object → Added to the live object.
+2. Modified fields: Changed in your local file compared to the last-applied annotation → Updated in the live object.
+3. Deleted fields: Present in the last-applied annotation, removed from your local file → Deleted from the live object.
+4. Untouched dynamic fields: Present in the live object, never existed in the last-applied annotation → Left alone safely.
+
+it is intelligent
+it created object if it deesnt exist,
+it will modify an object as per configuration file, if object already exists
+it will delete an object as per configuration file, if object already exists
+
+What kubectl apply Actually Stores
+
+• Client-Side Apply: It saves a serialized JSON copy of your entire file inside the resource's kubectl.kubernetes.io/last-applied-configuration annotation. It does not attach a version tag or timestamp to this text.
+
+• Server-Side Apply (--server-side): Instead of saving the whole file, the Kubernetes API server tracks which manager (such as kubectl) owns which specific fields inside the object's metadata.managedFields section.
+
+
+
+Apply a single file:
+kubectl apply -f deployment.yaml
+
+Apply all manifests in a directory, if multiple configuration files are there under a directory, they will apply at once
+kubectl apply -f /path/to/config-files/
+
+Apply recursively across subdirectories
+kubectl apply -R -f ./infrastructure/
+
+Preview changes before applying (Dry Run)
+kubectl apply -f deployment.yaml --dry-run=server
+
+Check differences between local file and live cluster
+kubectl diff -f deployment.yaml
+
+Prune orphaned resources: Deletes resources in the cluster that are no longer present in your local directory (use with caution).
+
+kubectl apply -f ./manifests/ --prune -l app=my-app
+
+
+Important Best Practices
+
+• Do not mix imperative and declarative commands: Avoid running kubectl edit or kubectl replace on resources managed by kubectl apply, as this causes the last-applied-configuration annotation to drift out of sync.
+• Server-Side Apply (--server-side): Modern Kubernetes versions support Server-Side Apply (kubectl apply --server-side -f file.yaml). Instead of relying on a bulky client-side annotation, the Kubernetes API server itself tracks field ownership directly in the resource's managedFields metadata, preventing conflicts when multiple controllers edit the same object.
+Would you like to dive deeper into any specific area, such as:
+• How Server-Side Apply differs from traditional client-side apply?
+• Troubleshooting common kubectl apply errors (like immutable field conflicts or annotation size limits)?
+• Using kubectl apply with Kustomize (kubectl apply -k)?

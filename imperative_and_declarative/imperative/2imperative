@@ -1,0 +1,29 @@
+these kubectl run, create, expose
+kubectl edit, scale, set
+
+commands are run once commands, you will not know who created it and modified, hard to keep track of whoc
+
+managing objects with configuration manifests files
+
+kubectl create -f ngnix.yaml
+
+we can now have ngnix.yaml files always to track it
+we can put it in code repository and put together a change review and approval process around these files
+so that a PR is reviewed and approved before appled to production environment
+
+update objects
+1) kubectl edit pod my-pod
+it will edit live objects without accessing or saving changes to the configuration file
+bypassing the review and approval
+
+in future if new change is applied using edit or using replace, the previous change is lost accordingly the differnce b/w live and current changes required
+
+2)kubectl replace -f ngnix.yaml
+a better option would be updating the configuration file with required changes and running the 
+kubectl replace -f ngnix.yaml to update the objects
+
+changes made are recorded and tracked
+
+to completely delete the objects and recreate as per new version of configuration file
+kubectl replace --force -f ngnix.yaml
+

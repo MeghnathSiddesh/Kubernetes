@@ -43,7 +43,7 @@ spec:
   type: ClusterIP 
   #by default if you dont specify type, it will take clusterIP
   ports:
-    - targetport: 80
+    - targetPort: 80
     #targetport is where backend pods are listening on
       port: 80
     #port is where the clusterip service is exposed and listening
