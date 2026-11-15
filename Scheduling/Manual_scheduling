@@ -1,0 +1,155 @@
+Manually scheduling a pod on a node
+
+In Kubernetes, the Scheduler (kube-scheduler) is a core control plane component that watches for newly created Pods with no assigned node and selects the best node for them to run on. It acts as the cluster's matchmaker, ensuring applications land on servers that have the right resources and meet specific constraints.
+
+
+
+"""
+a newly created Pod is not created on a node. When a Pod is first created, it only exists as a text record (a database entry) inside Kubernetes' central database (etcd), with no server assigned to it yet.
+
+The Two Stages of a Pod's Life
+
+It helps to separate defining the Pod in the database from actually running the containers on a server:
+
+1. Creation (In the Database): When you run kubectl apply, the Kubernetes API server writes a Pod configuration record into its database. At this exact moment, the Pod's nodeName field is blank, and no containers are running anywhere. The Pod is in the Pending state.
+
+2. Scheduling & Execution (On a Node): The scheduler spots this blank nodeName record in the database, picks the best server, and fills in the nodeName (for example, worker-node-2). Only after that field is filled in does worker-node-2 wake up, download the container image, and actually start running the app.
+"""
+The scheduler cannot move a running Pod  on a node to another node. Once a Pod is bound to a node, it stays there until it finishes or is deleted.
+
+you can only delete pod from one node and and then recreate it on another node
+
+""""
+
+How scheduling works
+
+Pod definition file:
+
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: my-app
+  labels: 
+    app: myapp
+    type: frontend
+spec: 
+  containers: 
+    - name: nginx
+      image: nginx
+  nodeName:
+
+#every pod has a field nodeName, that is by default is not set, kubernetes adds it automatically
+when nodeName is not set, then schdeduler based on some algorithm will assign the node to the nodeName field
+(if nodeName is already set in definition file, then scheduler will not comes into picture, the pod will be created in that node)
+
+the scheduler goes through all the pods and looks for nodeName that does not have this property set
+those are the candidates for scheduling
+
+it then identify the right node for the pod by running the scheduling algorithm, once identified it schedules the pod on the node, byt setting the node name property by creating a binding object
+
+#scheduler just assigns the best node for the pod, by mentioning the node name in nodeName feild, it will not make it run on that node
+
+--
+if there is no scheduler to monitor and scheduler pods onto node, what happen
+
+No scheduler
+
+the pods continues to be in a pending state
+now you can manually assign pods to nodes yourself
+without scheduler, easiest way to scheduler a pod on a node is to simply set the node name feild to name of pod in pod definition file while creating the pod
+
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: my-app
+  labels: 
+    app: myapp
+    type: frontend
+spec: 
+  containers: 
+    - name: nginx
+      image: nginx
+    nodeName: node-1
+
+the pod then assigned to that node
+you can only specify the nodename at creation time, you cannot reassign the pod to diff node if it is already running on a node
+
+--
+manual Pod scheduling in Kubernetes
+
+However, what if there is no scheduler (like kube-scheduler), you need to schedule the pod manually using nodeName feild
+
+but you have already created a pod and it is in pending state, due to non assignment of node
+now how can you assign it
+
+1) oneway is to delete the pod and recreate it using upated definition file with nodename
+
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: my-app
+  labels: 
+    app: myapp
+    type: frontend
+spec: 
+  containers: 
+    - name: nginx
+      image: nginx
+    nodeName: node-1
+
+run: kubectl replace --force -f definition.yaml
+
+this will send a kill signal to system and depends on the type of kill signal it handles the deletion on of the pod
+
+this will delete the exisitng pod and recreate it with updated configuration
+
+
+2) second way is to manually bind the pod with node
+
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: my-app
+  labels: 
+    app: myapp
+    type: frontend
+spec: 
+  containers: 
+    - name: nginx
+      image: nginx
+
+the nodeName: field at the bottom of the left window is completely empty.
+When you create this Pod, it sits in the Kubernetes database in a Pending state because no worker node has been assigned to run it yet.
+
+#Pod-bind-definition.yaml
+apiVersion: v1
+kind: Binding
+metadata:
+  name: nginx
+target:
+  apiversion: v1
+  kind: Node
+  name: node02
+
+Linking Pod to Node: Because you cannot directly edit the nodeName field of an already-created Pod, Kubernetes uses a special Binding object (shown in the top-right window).
+
+you create a Pod-bind-definition.yaml file with
+kind: Binding
+The metadata.name: nginx matches the Pod's name,
+while the target section points to the chosen server (kind: Node, name: node02).
+
+Sending the Binding to the API Server (terminal)
+You cannot apply a Binding file using standard kubectl apply commands. Instead,send an HTTP POST request directly to the Pod's /binding/ endpoint on the Kubernetes API server.
+
+curl --header "Content-Type:application/json" --request POST --data '{"apiVersion":"v1", "kind": "Binding" ... }' http://$SERVER/api/v1/namespaces/default/pods/$PODNAME/binding/
+
+
+
+
+-----------
+# to see all the pods inside kube-system(kubernetes pods for kubernetes management)
+
+kubectl get pods -n kube-system
+
+#this will continous watch status of pods and if there is any status change in pod, it will upate it in terminal output
+kubectl get pods --watch

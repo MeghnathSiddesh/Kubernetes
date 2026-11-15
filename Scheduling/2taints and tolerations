@@ -1,0 +1,56 @@
+NoExecute:
+
+Unlike NoSchedule—which only affects incoming pods—NoExecute actively clears out a node that is already running workloads.
+
+How NoExecute Works
+
+• Blocks New Pods: Any new pod without a matching toleration is rejected by the scheduler and will not be placed on the node.
+• Evicts Existing Pods: Any pod already running on the node without a matching toleration is immediately terminated and evicted.
+• Keeps Tolerating Pods: Pods that do have a matching toleration remain running on the node undisturbed.
+
+Common Use Cases
+
+• Automatic Node Failure Recovery: When a node crashes or loses network connection, the Kubernetes node controller automatically applies built-in NoExecute taints (such as node.kubernetes.io/not-ready or node.kubernetes.io/unreachable). By default, Kubernetes injects a 300-second tolerationSeconds into standard pods so they are automatically rescheduled to healthy nodes after 5 minutes of downtime.
+• Emergency Node Draining: Administrators can manually apply a NoExecute taint to quickly clear non-essential workloads off a node undergoing urgent security patching or hardware maintenance.
+
+-------------
+
+PreferNoSchedule 
+
+PreferNoSchedule is a "soft" taint effect in Kubernetes that tells the scheduler to try to avoid placing non-tolerating pods onto a node, though it is not strictly guaranteed.
+Unlike NoSchedule—which acts as a hard block—PreferNoSchedule acts as a strong preference that the scheduler will override if no other suitable nodes are available in the cluster.
+
+How PreferNoSchedule Works
+
+• Soft Scheduling Avoidance: The Kubernetes scheduler lowers the priority score of the tainted node for any pod lacking a matching toleration, steering the pod toward untainted nodes first.
+• Fallback Capacity: If all untainted nodes in the cluster run out of CPU, memory, or available slots, the scheduler will place the non-tolerating pod onto the PreferNoSchedule node rather than leaving the pod stuck in a Pending state.
+• Existing Pods Stay: Like NoSchedule, adding a PreferNoSchedule taint to a node never evicts pods that are already running on it.
+
+Practical Example
+
+You might use PreferNoSchedule on an expensive high-memory node to keep standard pods away during normal operations, while still letting those pods overflow onto it during sudden traffic spikes.
+
+Apply the soft taint to the node:
+kubectl taint nodes high-mem-node-1 workload=heavy:PreferNoSchedule
+
+Add a matching toleration only to pods that should actively use that node without penalty:
+apiVersion: v1
+kind: Pod
+metadata:
+  name: analytics-worker
+spec:
+  containers:
+  - name: worker
+    image: python:3.11
+  tolerations:
+  - key: "workload"
+    operator: "Equal"
+    value: "heavy"
+    effect: "PreferNoSchedule"
+
+
+Common Use Cases
+
+• Overflow & Burst Capacity: Reserve specialized or costly nodes for priority workloads under normal load, while allowing general applications to borrow the spare capacity when the rest of the cluster is full.
+• Spot or Preemptible Instances: Discourage stateful or critical pods from landing on cheap, temporary cloud instances unless there is nowhere else in the cluster for them to run.
+• Gradual Node Deprecation: Gently steer new workloads away from an older node you plan to retire without causing sudden scheduling failures.

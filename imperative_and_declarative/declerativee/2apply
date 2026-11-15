@@ -1,0 +1,178 @@
+kubctl apply manage objects in declerative way
+
+how the command works internally
+
+apply command takes into consideration below 3 things before making decision on what changes are to be made
+
+1)local configuration file
+2)live object definition on kubernetes
+3)last applied configuration 
+
+local file
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-db
+spec:
+  containers:
+    name: database
+    image: redis
+
+when you run apply command, if the object does not exist, it will create it
+
+when the object is created, an object configuration similar to local file is created within kubernetes
+but with additional feilds to store the status of the object
+
+live object configuration: #it is stored in kubernetes
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-db
+spec:
+  containers:
+    name: database
+    image: redis
+status:
+  conditions:
+    - lastProbeTime: null
+      status: "True"
+      type: Initialised
+
+#this is the live configuration of the object on the kubernetes cluster, this is how kubernetes stores information of an object internally without mattering what approach you use to create the object
+whether kubectl apply,create, run etc and when you even create without configuration file, directly
+
+#every when you get informtation from kubernetes(kubectl get pods), update some object in kubernetes
+#kubernetes will use this file to refere and compare the object
+
+#it is stored in etcd
+--
+but when you use kubectl apply, it does bit more
+
+the yaml version of local object configuration file is converted to a json format ->(last applied configuration) and it is then stored as the last applied configuration
+
+going forward for any update on the object all three are compared to identify what changes are to be made on live object
+
+last applied configuration:
+{
+"apiVersion": "v1",
+"kind": "Pod",
+"metadata":{
+  "annotations": {},
+  "name": "web-db"
+},
+"spec":{
+  "containers":[
+    {
+    "name": "database",
+    "image": "redis"
+    }
+  ]
+}
+}
+
+this json file is stored inside the live object configuration on the kubernetes cluster itself as an annotation named last applied configuration
+
+live object:
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-db
+  annotations:
+  kubectl.kubernetes.io/last-applied-configuration:
+  {"apiVersion": "v1","kind": "Pod","metadata":{"annotations": {},"name": "web-db"},
+"spec":{"containers":[{"name": "database","image": "redis"}]}}
+spec:
+  containers:
+    name: database
+    image: redis
+status:
+  conditions:
+    - lastProbeTime: null
+      status: "True"
+      type: Initialised
+
+this annotation is only created when object is created using kubectl apply
+kubectl create/replace do not store last applied configuration
+
+----------
+
+for ex:
+when redis image is updated to 1.19 in our local file and
+kubectl apply config.yaml
+
+config.yaml will compared it with live configuration file, if there is a difference the live configuration file is updated with new value(when live config file is updated, then your changes will be made by kubernetes)
+
+after any change(via kubectl apply) in live configuration file, the last applied configuration json file is always updated to latest of live object file
+
+
+The Three Configuration Sources
+
+• Local File: The YAML or JSON file on your machine that defines your desired state.
+• Last-Applied Configuration: A JSON string stored inside the live object's metadata under the annotation kubectl.kubernetes.io/last-applied-configuration. It records what the local file looked like the last time apply was run.
+• Live Object Configuration: The current, active configuration of the resource running inside the Kubernetes cluster (stored in etcd), which includes default values and fields added by controllers or manual edits.
+
+
+1. How kubectl apply Creates an Object
+
+When you run kubectl apply -f manifest.yaml for a resource that does not exist yet in the cluster, Kubernetes follows these steps:
+• Checks the cluster: kubectl queries the Kubernetes API server and sees that no matching object exists.
+• Injects the annotation: Before sending the manifest to the API server, kubectl serializes the entire contents of your local file into JSON and saves it inside the kubectl.kubernetes.io/last-applied-configuration annotation.
+• Creates the live object: The API server creates the resource in the cluster, populates any default fields (like imagePullPolicy or restartPolicy), and stores both the live configuration and the new annotation.
+
+
+2. How kubectl apply Modifies an Object (Three-Way Merge)
+
+When you update your local file and run kubectl apply -f manifest.yaml again, kubectl performs a three-way diff between the local file, the last-applied configuration, and the live object to build a patch.
+
+
+2. How kubectl apply Modifies an Object (Three-Way Merge)
+
+When you update your local file and run kubectl apply -f manifest.yaml again, kubectl performs a three-way diff between the local file, the last-applied configuration, and the live object to build a patch.
+
+Scenario	                 Comparison Logic	                Result on the Live Object
+Adding a field -> Present in local file, missing in last-applied and live object. ->	The new field is added to the live object.
+
+Updating a field -> Value in local file differs from last-applied and live object. -> The field is updated to match your new local file value.
+
+Deleting a field -> Present in last-applied, removed from local file. -> The field is explicitly deleted from the live object.
+
+**Important
+
+Preserving unmanaged fields -> Present in live object (e.g., added by an autoscaler or manual kubectl edit), missing in both local file and last-applied. -> The field is left untouched because kubectl knows it did not manage it previously.
+
+***
+• Updates the annotation: After calculating and applying the strategic merge patch to the live object, kubectl overwrites the last-applied-configuration annotation with the latest contents of your local file so it is ready for the next run.
+
+----------
+why do we need last applied configuration file then?
+
+last applied configuration is not updated when object is updated via create command(and object created using apply)
+
+why should kubernetes compare both live object and last applied configuration
+
+Kubernetes must compare both the live object and the last-applied configuration because comparing only one makes it impossible to distinguish between a field you intentionally deleted and a field that Kubernetes added automatically.
+
+If kubectl apply only compared your local file against the live object (a two-way diff), two major problems would occur:
+
+
+1. The Problem of Deleting Fields
+
+Imagine your live object has a field like tier: frontend, which is missing from your local file. Without the last-applied-configuration, kubectl cannot tell which of these two scenarios happened:
+
+• Scenario A (You deleted it): You previously had tier: frontend in your local file, applied it, and just deleted that line from your YAML. kubectl should delete it from the cluster.
+
+• Scenario B (Kubernetes added it): Kubernetes or another controller (like an autoscaler or service mesh) automatically injected tier: frontend into the live object. You never had it in your file, so kubectl should not delete it.
+
+How the 3rd file solves it: kubectl checks the last-applied-configuration. 
+If tier: frontend was in the last-applied file, it knows you owned it and just deleted it (Scenario A).
+If tier: frontend wasn't in the last-applied file, it knows it was not created originally by it and it is created by a controller added it and leaves it alone (Scenario B).
+
+
+2. Why Not Compare Only Local vs. Last-Applied?
+
+You might wonder why kubectl doesn't just ignore the live object and only compare your local file against the last-applied-configuration.
+
+• Drift Detection: Someone might have manually edited the live cluster using kubectl edit or kubectl scale (causing "configuration drift").
+• Enforcing Desired State: If someone manually changed replicas: 3 to replicas: 1 directly on the live cluster, your local file (replicas: 3) and last-applied (replicas: 3) would look identical. Without checking the live object, kubectl would think nothing changed and fail to fix the drift back to 3 replicas.

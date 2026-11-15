@@ -1,0 +1,53 @@
+You can view and filter selectors in Kubernetes using the --show-labels and -l (or --selector) flags in kubectl. Selectors rely on the key-value labels attached to Kubernetes resources like Pods, Services, and Deployments.
+
+
+1. View Existing Labels on Resources
+
+To find out which labels are available to use as selectors, list the labels attached to your resources.
+• Show all labels in a table column: Run kubectl get pods --show-labels to add a LABELS column to the standard output.
+
+• Extract a specific label as a column: Run kubectl get pods -L app,env to display the values of the app and env keys in their own columns.
+
+• Inspect full resource metadata: Run kubectl describe pod <pod-name> and look under the Labels section.
+
+2. Filter Resources Using Selectors (-l)
+
+Once you know the labels, use the -l flag to filter resources with equality-based or set-based selectors.
+• Match an exact key-value pair: Run kubectl get pods -l app=nginx to return only Pods labeled with app: nginx.
+
+• Exclude a specific label value: Run kubectl get pods -l env!=production to return all Pods where env is not production.
+
+• Match multiple conditions (AND logic): Separate labels with a comma, such as kubectl get pods -l app=nginx,tier=frontend.
+
+• Match multiple values (OR / Set-based logic): Use in or notin inside quotes, such as kubectl get pods -l 'env in (dev, staging)'.
+
+-l = selectors
+
+kubectl get pods --show-labels
+kubectl get pods -L app,env
+kubectl get pods -l app=nginx
+kubectl get pods -l env!=production
+kubectl get pods -l app=nginx,tier=frontend
+kubectl get pods -l 'env in (dev, staging)'
+
+kubectl get pods --selector env=dev
+#you can also use --selector instead -l
+
+#this will list all the objects in cluster(pods, services, replicasets, etc..)
+kubectl get all
+
+#this will list all the objects in cluster that having prod environment
+kubectl get all -l env=prod
+
+#you can also directly get the count of pods in prod env using word count + -l (line, no of line)
+kubectl get all -l env=prod | wc -l
+8
+
+this will also take into consideration of headers(NAME, READY, STATUS, RESTARTS, AGE), to remove headers and count
+kubectl get pods --selector env=prod --no-headers
+kubectl get pods --selector env=prod --no-headers | wc -l
+
+
+
+#Identify the POD which is part of the prod environment, the finance BU and of frontend tier(AND logic)
+kubectl get pods -l env=prod,bu=finance,tier=frontend

@@ -1,0 +1,151 @@
+pod to node relationship
+
+how we can restrict what pods are placed on what nodes
+
+taints and toleration have nothing to do with the scurity or intrusion on the cluster
+
+taints and tolerations can be used to set resteiction on what pods can be scheduled on a node
+
+lets say we have a cluster of 3 worker nodes A B C 
+
+we have pods a,b,c,d needs to be scheduled
+
+when the pods are created, kubernetes scheduler tries to place thes pods on the available worker nodes.
+as of now there are no restrictions or limitations, the scheduler places the pods on all of them to manage the balance equally
+
+A(a,d), B(b), C(c)
+Node(pod1,pod2..)
+
+lets us assume we have dedicated resource resource on Node A for a particular application
+so we need only those pods that belongs to this application to be placed on this node A 
+
+1)first, we prevent all pods from being places on this node A by placing a taint on the node
+taint -> blue
+
+pods should tolerate this taint to be placed in this node
+
+by default, pods have no toleration, so unless the toleration is specified on the pods, none of them would be able to tolerate any taint on the node
+
+2)to enable certain pods to be placed on this node
+for this we must specify which pods are tolerant to this taint
+
+if we like to allow only pod d, we add a toleration to pod d 
+pod d, is now tolerant to blue
+when scheduler tries to place this pod on node A, when it goes through node A, pod d can tolerate the taint blue, so it goes to node A 
+Node A(pod d)
+
+
+now
+schdeuler tries to place pod a,b,c to node A 
+since A have taint blue, these pods are not accepted by node A, so scheduler tries schedule a,b,c on diff nodes (B and C)
+when scheduler tries schedule pod d, if it goes through node A, then that pod is put to A, since it tolerates the taint blue
+
+A(d), B(a,c), C(b)
+
+#remember
+taints are set on nodes and tolerations are set on objects
+taint is a key value pair 
+
+#to put a taint on a node
+
+kubectl taint nodes node_name key=value:taint_effect
+
+ex: kubectl taint nodes node01 app=blue:NoSchedule
+
+taint effect: defines what would happen to pods that do not tolerate this taint
+taint-effects:
+1)NoSchedule : pods will not be schedules on this node
+
+2)PreferNoSchedule : kubernetes will try to avoid placing the pod that do not tolerate this taint, but it is not gauranteed
+if no other ways available to place a pod, kubernetes will place pod
+
+3)NoExcecute: 
+NoExecute is the strictest taint effect in Kubernetes, designed to both block new pods from landing on a node and immediately evict existing pods that cannot tolerate it.
+
+
+new pods will not schedules on the node and existing pods on the node, if any will be evicted if they do not tolerate the taint
+these pods may have been scheduled on the node before taint was applied to the node 
+
+----------
+
+tolerations are added to the pods
+
+to add the toleration  to the pod:
+
+1) add it in pod definition file
+$under spec section add a section called  tolerations
+#use the same values used while creating taint in node
+#all the values should be enclosed by double quotes
+#you can add multiple tolerations to a pod so that a pod can scheduled into any tolerated nodes
+
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: my-app
+  labels: 
+    app: myapp
+    type: frontend
+spec: 
+  containers: 
+    - name: nginx
+      image: nginx
+  tolerations:
+    - key: "app"
+      operator: "Equal"
+      value: "blue"
+      effect: NoSchedule
+    #means key=app:NoSchedule
+
+You can apply a taint to a node with specialized GPU hardware so regular workloads do not take up space.
+kubectl taint nodes gpu-node-1 hardware=gpu:NoSchedule
+
+Add a toleration to your GPU-heavy pod's YAML manifest
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ml-training-pod
+spec:
+  containers:
+  - name: trainer
+    image: tensorflow/tensorflow:latest
+  tolerations:
+  - key: "hardware"
+    operator: "Equal"
+    value: "gpu"
+    effect: "NoSchedule"
+
+
+taints and tolerations are only meant to restrict nodes from accepting certain pods
+
+but it does not gaurantee that  a pod with certain toleration will be scheduled to only to those it which taint matches or to a particular node where its taints matches the pods toleration
+
+it only tell nodes to accpt only these pods
+
+1)a pod can also be scheduled to other nodes where there is no taint
+2)a pod can also be scheduled to other nodes where there its taint matches the tolerations(multiple tolerations of pod) or if multiple nodes have same taint
+--
+if your requirement is to restrict a pod to certain nodes, it is achedived through another concept caled nodeAffinity
+--
+
+so we only been referring to worker nodes, we also have master nodes in the cluster, which is just another node that have all the capability of hosting the pod
++
+master node runs all the management software
+
+the scheduler does scheduleany worker pods on mater node
+because when a kubernetes cluster is first set up, a taint is set on master node automaytically that prevents any pods from being scheduled on this node
+
+you can see this and modify this behaviour if requires(best practice is not to deploy any applications on master node)
+
+to see this taint
+run: kubectl describe node node_name | grep Taint
+
+run: kubectl describe node kubemaster | grep Taint
+#Taints: node-role.kubernetes.io/master:NoSchedule
+
+
+Common Use Cases
+
+• Dedicated Nodes: Reserve specific nodes for a particular team, project, or workload type.
+• Special Hardware: Keep standard pods off nodes equipped with expensive GPUs, FPGAs, or high-speed SSDs.
+• Node Maintenance & Health: Kubernetes automatically adds built-in taints (like node.kubernetes.io/unreachable) to evict pods when a node fails or runs out of disk space.
+
