@@ -1,0 +1,110 @@
+node Selectors in kubernetes
+
+you have 3 node cluster out of which 2 nodes are smaller with lower hardware resources
+1 is larger with higher hardware resources
+
+you have different kind of workloads running in cluster, applications like data processors require higher hardware nodes that can provide larger in case the job demands
+
+however in the default setup any pods can go to any nodes 
+
+to solve this we can set a limitation on pod so that they only run on particular nodes
+
+there are ways to do this
+
+1) Node Selector
+
+pod-definition.yaml
+
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: data-processor
+spec: 
+  containers: 
+    - name: data
+      image: data-processor
+  nodeSelector: 
+    size: Large
+
+kubectl apply -f definition.yaml
+
+#we add this selector under sepec section as nodeSelector, it will have key value
+#the node labels, which matches this label will be assigned to run this pod
+#the scheduler uses these labels to match and identify the right to place the pods on
+
+#you must have labelled your nodes prior to creating the pods(if not it will leads to pod pending state)
+
+label Nodes :
+kubectl label nodes <node-name> <label-key>=<label-value>
+
+kubectl label nodes node01 size=Large
+
+-------
+NodeSelector limitations
+
+#we use single label and selector to achieve our goals
+
+#what if our requirement is complex
+like place a pod on Large or medium node
+or place a pod on any node that is not small
+
+you canot acehive this using nodeSelectors, for this you need node affinity
+
+--------------------------------------------------
+
+nodeSelector is the simplest way in Kubernetes to constrain a pod so that it only runs on nodes with specific labels. It works as a hard requirement, meaning the Kubernetes scheduler will only place the pod on a node that contains every key-value label pair specified in the pod's nodeSelector field.
+
+How nodeSelector Works
+
+Using nodeSelector is a two-step process involving labeling your node and updating your pod configuration.
+• Step 1: Label the node: Attach a key-value label to your target node using kubectl label nodes <node-name> <label-key>=<label-value>. For example, running kubectl label nodes worker-1 disktype=ssd marks worker-1 as having SSD storage.
+• Step 2: Add nodeSelector to the Pod: Define the nodeSelector field inside the spec section of your Pod manifest. The scheduler checks all nodes and filters out any that do not match disktype: ssd.
+
+Example Pod Manifest
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-ssd
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+  nodeSelector:
+    disktype: ssd
+
+
+Key Characteristics and Limitations
+
+• Hard constraint only: If no nodes in the cluster have the matching label, the pod will stay in a Pending state and will not be scheduled.
+
+"""
+• Exact matching (AND logic): If you list multiple labels under nodeSelector, a node must have all of them to be eligible. It does not support "OR" logic or "NOT" operators.
+"""
+
+• Built-in node labels: Kubernetes automatically applies standard labels to nodes—such as kubernetes.io/os=linux or topology.kubernetes.io/zone=us-east-1a—which you can use right away without manually labeling nodes.
+
+• When to upgrade to Node Affinity: For complex rules—like preferring a node without strictly requiring it, or matching against a list of possible values—use nodeAffinity instead of nodeSelector.
+
+
+------------------
+
+
+what is the labels on node is changed later?
+
+Nothing happens to pods that are already running on the node when you change or remove its labels. nodeSelector is only checked by the Kubernetes scheduler at the exact moment a pod is being scheduled onto a node, so existing pods will continue running undisturbed.
+
+How Label Changes Affect Pods
+
+• Existing running pods: Pods already bound to the node stay right where they are. Removing or changing a node's label will not evict or restart them.
+
+• Newly scheduled pods: Any new pods created after the label change will follow the updated labels. If the node no longer has the required label, new pods with that nodeSelector will not be placed there.
+
+• Recreated or scaled pods: If an existing pod crashes and is recreated by a Deployment, or if you scale up your replicas, the new pod instances will evaluate the node's current labels and will skip that node if the label no longer matches.
+
+How to Move Existing Pods After a Label Change
+
+If you changed a node's label and actually want the old pods to move off that node, you must manually force them to reschedule:
+• Delete the individual pods: Run kubectl delete pod <pod-name> so the Deployment or ReplicaSet creates a fresh pod that gets scheduled onto a node with the right label.
+• Drain the node: Run kubectl drain <node-name> --ignore-daemonsets to safely evict all workloads from that node at once.
+• Use NoExecute taints instead: If you ever need pods to be automatically evicted the instant a node's status changes, use a taint with the NoExecute effect rather than relying on labels and nodeSelector.

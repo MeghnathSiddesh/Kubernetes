@@ -10,7 +10,10 @@ How NoExecute Works
 
 Common Use Cases
 
-• Automatic Node Failure Recovery: When a node crashes or loses network connection, the Kubernetes node controller automatically applies built-in NoExecute taints (such as node.kubernetes.io/not-ready or node.kubernetes.io/unreachable). By default, Kubernetes injects a 300-second tolerationSeconds into standard pods so they are automatically rescheduled to healthy nodes after 5 minutes of downtime.
+• Automatic Node Failure Recovery:
+#this is done by system, not manual
+ When a node crashes or loses network connection, the Kubernetes node controller automatically applies built-in NoExecute taints (such as node.kubernetes.io/not-ready or node.kubernetes.io/unreachable). By default, Kubernetes injects a 300-second tolerationSeconds into standard pods so they are automatically rescheduled to healthy nodes after 5 minutes of downtime.
+
 • Emergency Node Draining: Administrators can manually apply a NoExecute taint to quickly clear non-essential workloads off a node undergoing urgent security patching or hardware maintenance.
 
 -------------
@@ -54,3 +57,31 @@ Common Use Cases
 • Overflow & Burst Capacity: Reserve specialized or costly nodes for priority workloads under normal load, while allowing general applications to borrow the spare capacity when the rest of the cluster is full.
 • Spot or Preemptible Instances: Discourage stateful or critical pods from landing on cheap, temporary cloud instances unless there is nowhere else in the cluster for them to run.
 • Gradual Node Deprecation: Gently steer new workloads away from an older node you plan to retire without causing sudden scheduling failures.
+
+you can modify, add, or remove a node's taints at any time in a running Kubernetes cluster. You do not need to drain, reboot, or recreate the node to change its taints.
+
+
+How to Modify Taints
+
+You can update taints dynamically using the kubectl taint command:
+• Add a taint: Use the standard syntax kubectl taint nodes <node-name> key=value:effect. For example, kubectl taint nodes node1 app=blue:NoSchedule prevents new pods without a matching toleration from landing on node1.
+• Update an existing taint: Add the --overwrite flag to change the value or effect of an existing taint key. For example, 
+kubectl taint nodes node1 app=green:NoSchedule --overwrite 
+#updates the existing app taint.
+
+• Remove a taint: Append a minus sign (-) to the end of the taint definition. 
+#For example, 
+kubectl taint nodes node1 app=blue:NoSchedule- 
+#removes that specific taint, or kubectl taint nodes node1 app- removes all taints with the key app.
+
+
+What Happens to Running Pods?
+
+Changing a taint takes effect immediately, and how it impacts existing pods depends on the taint effect you choose:
+
+Taint Effect              	Impact on Existing Running Pods               	Impact on New Pods
+NoSchedule	   -> Existing pods continue running undisturbed.   	New pods without a matching toleration    will not be scheduled onto the node.
+
+PreferNoSchedule -> Existing pods continue running undisturbed.	  The scheduler tries to avoid placing new pods on the node, unless no other nodes are available.
+
+NoExecute   -> Existing pods without a matching toleration are immediately evicted from the node. -> 	New pods without a matching toleration will not be scheduled onto the node.
