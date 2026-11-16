@@ -1,0 +1,222 @@
+Node Affinity in Kubernetes is a scheduling feature that allows you to constrain which nodes your Pod can be scheduled on based on node labels. It is an advanced, more expressive version of the basic nodeSelector field, supporting complex matching rules, soft preferences, and conditional operators.
+
+
+Core Types of Node Affinity
+
+Kubernetes offers two main types of node affinity, defining whether a rule is a strict requirement or a soft preference.
+
+Affinity Type	                                Behavior	                    Scheduling Impact
+requiredDuringSchedulingIgnoredDuringExecution: Hard requirement. The scheduler must meet the rule to place the Pod on a node. -> If no matching node exists, the Pod remains in a Pending state.
+
+
+preferredDuringSchedulingIgnoredDuringExecution: Soft preference. The scheduler tries to find a matching node, assigning higher priority to nodes that match.m -> If no matching node is available, the scheduler still places the Pod on another available node.
+
+(Note: The IgnoredDuringExecution:  suffix means that if node labels change after the Pod is already running on that node, Kubernetes will not evict the Pod. It only evaluates the rules at scheduling time.)
+
+-----------------------
+
+"like nodSelector, nodeAffinity also checks for labels in node to maktch with pod definition"
+Supported Operators
+
+Unlike nodeSelector, which only allows exact key-value matches, Node Affinity supports several logical operators in matchExpressions:
+• In: The label's value must match at least one value in your specified list.
+• NotIn: The label's value must not match any value in your list. (Useful for node anti-affinity).
+• Exists: The node must have a label with the specified key, regardless of its value.
+• DoesNotExist: The node must not have a label with the specified key.
+• Gt (Greater Than): The label's value (parsed as an integer) must be greater than your specified value.
+• Lt (Less Than): The label's value (parsed as an integer) must be less than your specified value.
+
+------------------
+
+
+Logic Rules: AND vs. OR
+
+Understanding how Kubernetes evaluates multiple rules is critical to avoiding unexpected scheduling failures:
+• Multiple nodeSelectorTerms (OR logic): If you list multiple items under nodeSelectorTerms, the Pod can be scheduled onto a node if at least one of the terms is satisfied.
+• Multiple matchExpressions (AND logic): Within a single nodeSelectorTerm, if you list multiple matchExpressions, all of them must be satisfied for the node to match.
+
+
+1. AND Logic: Multiple matchExpressions
+
+When you put multiple items under a single matchExpressions block, you are telling Kubernetes that a node must satisfy every single condition to qualify.
+Goal: Schedule a Pod on a node that is in us-east-1a AND has an ssd disk.
+
+nodeAffinity:
+  requiredDuringSchedulingIgnoredDuringExecution:
+    nodeSelectorTerms:
+    - matchExpressions:            # <--- ONE term starts here
+      - key: zone                  # Condition 1
+        operator: In
+        values:
+        - us-east-1a
+      - key: disktype              # Condition 2 (ANDed with Condition 1)
+        operator: In
+        values:
+        - ssd
+
+• Node A (zone=us-east-1a, disktype=ssd) \(\rightarrow \) Matches. Both conditions are true.
+• Node B (zone=us-east-1a, disktype=hdd) \(\rightarrow \) Fails. It fails the second condition.
+• Node C (zone=us-west-1a, disktype=ssd) \(\rightarrow \) Fails. It fails the first condition.
+
+
+2. OR Logic: Multiple nodeSelectorTerms
+
+When you create multiple list items under nodeSelectorTerms, you are giving Kubernetes alternative paths. A node only needs to satisfy one of these blocks to qualify.
+Goal: Schedule a Pod on a node that is in us-east-1a OR has an ssd disk (regardless of zone).
+
+nodeAffinity:
+  requiredDuringSchedulingIgnoredDuringExecution:
+    nodeSelectorTerms:
+    - matchExpressions:            # <--- Term 1 starts here
+      - key: zone
+        operator: In
+        values:
+        - us-east-1a
+    - matchExpressions:            # <--- Term 2 starts here (ORed with Term 1)
+      - key: disktype
+        operator: In
+        values:
+        - ssd
+
+• Node A (zone=us-east-1a, disktype=ssd) \(\rightarrow \) Matches. Satisfies both Term 1 and Term 2.
+• Node B (zone=us-east-1a, disktype=hdd) \(\rightarrow \) Matches. Satisfies Term 1.
+• Node C (zone=us-west-1a, disktype=ssd) \(\rightarrow \) Matches. Satisfies Term 2.
+• Node D (zone=us-west-1a, disktype=hdd) \(\rightarrow \) Fails. Satisfies neither term.
+
+
+3. Combined Example: (A AND B) OR (C AND D)
+
+In real-world clusters, you often combine both rules to handle fallback hardware or multi-region setups.
+Goal: Run a heavy machine-learning Pod on either a high-CPU AWS node (cloud=aws AND cpu=high) OR a GPU-enabled GCP node (cloud=gcp AND gpu=true).
+
+nodeAffinity:
+  requiredDuringSchedulingIgnoredDuringExecution:
+    nodeSelectorTerms:
+    # OPTION 1: AWS + High CPU
+    - matchExpressions:
+      - key: cloud
+        operator: In
+        values: ["aws"]
+      - key: cpu
+        operator: In
+        values: ["high"]
+    # OPTION 2: GCP + GPU
+    - matchExpressions:
+      - key: cloud
+        operator: In
+        values: ["gcp"]
+      - key: gpu
+        operator: In
+        values: ["true"]
+
+• Node 1 (cloud=aws, cpu=high) \(\rightarrow \) Matches Option 1.
+• Node 2 (cloud=gcp, gpu=true) \(\rightarrow \) Matches Option 2.
+• Node 3 (cloud=aws, gpu=true) \(\rightarrow \) Fails. It mixes conditions across different terms, satisfying neither complete option.
+
+
+values List Also Uses OR Logic
+
+Within a single matchExpression, listing multiple items under values also acts as an OR check for that specific key.
+
+- key: zone
+  operator: In
+  values:
+  - us-east-1a    # Matches us-east-1a OR us-east-1b
+  - us-east-1b
+
+----------------------------------------------------
+
+
+Weights in Preferred Affinity
+
+When using "preferredDuringSchedulingIgnoredDuringExecution", each rule has a weight field ranging from 1 to 100.
+• During scheduling, the kube-scheduler evaluates all nodes that pass the hard requirements.
+• For each preferred rule a node satisfies, its weight is added to the node's total score.
+• The node with the highest combined score (factoring in other scheduling priorities) wins the Pod.
+
+Here is a manifest combining both a hard requirement and a weighted soft preference:
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gpu-analytics-pod
+spec:
+  affinity:
+    nodeAffinity:
+      # HARD RULE: Must run in us-east-1a or us-east-1b AND have an SSD
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values:
+            - us-east-1a
+            - us-east-1b
+          - key: disktype
+            operator: In
+            values:
+            - ssd
+      # SOFT RULE: Strongly prefer nodes with a high-end GPU
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 80
+        preference:
+          matchExpressions:
+          - key: gpu-type
+            operator: In
+            values:
+            - nvidia-a100
+  containers:
+  - name: worker
+    image: nginx:latest
+
+When you deploy this Pod, the kube-scheduler runs a two-step pipeline—first filtering out unsuitable nodes, and then scoring the remaining ones—to decide where gpu-analytics-pod will run.
+
+Step 1: Filtering (The Hard Rule)
+
+First, the scheduler evaluates requiredDuringSchedulingIgnoredDuringExecution. It checks every node in your cluster against this single nodeSelectorTerm.
+
+Because both expressions sit inside the same matchExpressions list, a node must pass both checks:
+1. Zone Check: Does the node have the label topology.kubernetes.io/zone set to us-east-1a OR us-east-1b?
+2. Disk Check: Does the node ALSO have the label disktype set to ssd? 
+
+• If NO nodes pass both checks: The scheduler stops here. Your Pod stays stuck in the Pending state until a matching node becomes available.
+• If 1 or more nodes pass: Only those qualifying nodes move forward to Step 2. All other nodes are eliminated.
+
+Step 2: Scoring (The Soft Rule)
+
+Next, the scheduler takes the surviving nodes from Step 1 and evaluates preferredDuringSchedulingIgnoredDuringExecution.
+• It checks each surviving node for the label gpu-type=nvidia-a100.
+• If a node has it: The scheduler adds +80 points to that node's overall score.
+• If a node does not have it: The node gets 0 bonus points, but it is not disqualified.
+The scheduler then combines these affinity points with its default built-in scoring rules (such as available CPU/RAM and spreading Pods evenly across nodes) and places the Pod on the node with the highest total score.
+
+Real-World Cluster Walkthrough
+
+Imagine your cluster has these 4 nodes when you apply this YAML:
+
+Node	            Labels	            Passes Step 1 (Filter)? 	Step 2 Score Bonus	    Final Outcome
+Node-1 ->zone=us-east-1a, disktype=ssd, gpu-type=nvidia-a100 ->Yes (Zone + SSD) ->	+80 -.	Winner. Meets hard rules and gets the GPU bonus.
+
+Node-2 -> zone=us-east-1b, disktype=ssd, gpu-type=nvidia-t4	-> Yes (Zone + SSD) ->	+0	-> Backup. Used if Node-1 is full or down, even without the A100 GPU.
+
+Node-3	-> zone=us-east-1a, disktype=hdd, gpu-type=nvidia-a100	-> No (Fails disktype=ssd)	-> Eliminated	Rejected. -> Even though it has the A100 GPU, failing the hard rule disqualifies it immediately.
+
+Node-4	-> zone=us-west-2a, disktype=ssd, gpu-type=nvidia-a100	-> No (Fails zone)	-> Eliminated	Rejected. Wrong availability zone.
+
+
+Step 3: After Scheduling (IgnoredDuringExecution)
+
+Once the Pod starts running on Node-1, Kubernetes stops enforcing these affinity rules for that Pod.
+• If an administrator removes the disktype=ssd label from Node-1 ten minutes later, Kubernetes will not evict or kill gpu-analytics-pod.
+• The rules only apply again if the Pod is deleted and recreated.
+
+
+-------------------------
+
+
+Node Affinity vs. Other Scheduling Features
+
+• nodeSelector: The simplest approach for exact key-value matching. If you specify both nodeSelector and nodeAffinity on the same Pod, both must be satisfied.
+• Taints and Tolerations: Node Affinity attracts Pods to specific nodes. Taints and Tolerations work in reverse—nodes repel Pods unless the Pod explicitly tolerates the taint. They are often used together to create dedicated node pools (e.g., tainting GPU nodes so normal workloads stay off, while using Node Affinity to pull GPU workloads onto them).
+
+----------------------------

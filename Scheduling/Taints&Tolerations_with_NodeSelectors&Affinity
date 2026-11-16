@@ -1,0 +1,37 @@
+we have 3nodes(green, blue, red)+2_other nodes with 3pods(green, blue, red) + 2_other nodes
+
+ultimate aim is to place the blue pod in blue node and red pod in red node and green pod in green node
+we are sharing kubernetes cluster with 2 other nodes, that needs to hold other pods
+
+we dont want pods(green, blue, red) to be placed on other nodes
+--------
+solve using taints and tolerations:
+
+we apply taints to nodes, by marking their color to (green, blue, red)
+
+we set toleration on pods to tolerate the corresponding taint color
+
+when pods are created, nodes ensuren that they only ensure to accept pods with the right toleration
+
+However taints and toleration does not gaurantee that pods only prefer these nodes, so the pod can ends up on other nodes that do not have taints and tolerations set
+
+this is not desired
+--------
+
+solve using node affinity and node selectors
+
+we label nodes with their respective colors(green, blue, red)
+
+we set node selectors on the pods to tie the pods to the nodes, so pods ends up on the right nodes
+
+However, that doesn't guarantee that other pods are not placed on these nodes, there is a chance that other 2 pods can be placed on nodes having (green, blue, red) labels
+
+this is not we desire
+---------------------
+ a combinatuion of taints&tolerations and node affinity rules can be used together to completely dedicate nodes for specific pods 
+
+ we first use taints&tol to prevent other pods from being placed on our nodes
+ the we use nopde affinity to prevent our pods from placing on other nodes
+
+
+

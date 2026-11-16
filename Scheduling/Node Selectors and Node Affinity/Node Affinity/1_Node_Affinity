@@ -1,0 +1,148 @@
+the primary purpose of node affinity feature is to ensure that pods rae hosted on particular nodes
+
+like large data processing pod ends up larger node
+
+the node affinity feature provides us with advanced capabilties to limit pod placement to particular nodes
+
+#node affinity in pod definition file
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  containers:
+    - name: my-app
+      image: data-processor
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution
+      nodeSelectorTerms:
+        - matchExpressions:
+           - key: size
+              operator: In #esnures any values in the list of values provided below
+              values:
+                - Large
+                - Medium
+          
+
+what if there are nodes with label app=web
+
+#irrespective of any scheduling type(once the pod is scheduled, kubernetes will run that pod on that node)
+#lets say we our pod is scheduled on the node with label app=web
+#what is someone changes the label in furture, while the pods that matches the labels(tolerant) are running on that node
+#will the pod continue to stay on the node?
+--all of this is answered by a property under nodeAffinity, which is type of nodeAffinity
+
+nodeAffinity types: they define the behaviour of the scheduler w.r.t nodeAffinity and also in stages in the life cycle of pod
+
+2 types of nodeAffinity
+
+requiredDuringSchedulingIgnoredDuringExecution
+preferredDuringSchedulingIgnoredDuringExecution
+
+additoional type of nodeAffinity
+requiredDuringSchedulingRequiredDuringExecution
+
+there are two stage in the lifecycle of the pod when considering nodeAffinity
+
+a) during scheduling: is the stage where pod does not exist and is created for the first time
+       #which is affinity rules are considered to place the pod on the right nodes
+       #what if the nodes with matching labels are not available?, we forgot to lable the node as large
+       #this is where type of node affinity comes into play
+    
+    1) requiredDuringScheduling: scheduler will mandar that pod to be placed on node with given affinity rules in pod definition file, if it cannot find one, the pod will not be scheduled
+
+    this type is used, where placement of pod in particular node is crucial
+
+    2) preferredDuringScheduling:
+    lets say pod placement on particular node is less important, than running the workload itself
+    in that case you could set it to preferred 
+    if in case a matching node is not found, the scheduler will ignore the affinity rules and and place the pod on any available node
+    it tries to place the pod in best matching node among the affinity rule
+
+b) during execution 
+ this is stage of pod, where pod is running on a node and a change is made in the environment that affects node affinity rules in the pod, such as change in the lable of node 
+
+#remember node labels can be removed/added/updated at any time
+ ex: an adminster removed the label on node size=large, what would happen to the pod that are running on node?
+
+if 1)"IgnoredDuringExecution" : pods will continue to run, even if there are any changes in the node labels
+
+#remember you cannot change the labels, node affinity rules in the pod, those are immutable
+#even if you change them,in pod definition file, you need to delete the current pod and create new one
+(kubectl apply -f definition.yaml(it will delete exisiting one and create new one, if pods are part of replicaset then current pods stay same, new pods getting created will have the updated affinity, labels etc))
+
+  2) RequiredDuringExecution: if there any changes in the labels on node and if that change is affecting the affinty rules of already running pods, then
+    those pods affecting will be evicted from node
+
+    """who handles the recreation of such pod?""", need to check
+
+    No, requiredDuringSchedulingRequiredDuringExecution is not implemented in Kubernetes. It was originally proposed as a planned feature to evict running Pods if a node's labels changed later, but it was never built into the Kubernetes API.
+
+
+
+
+--------------------
+
+             #- key: app
+             #operator: Equals #esnures that app=web
+             #values: web 
+
+          #remember kuberenetes doesn't have operator Equal
+            - key: size
+              operator: In #esnures any values in the list of values provided below
+              values:
+                - Large
+                - Medium
+            
+            - key: size
+              operator: NotIn #esnures neither of the values provoided below 
+              values:
+                  - small
+                  - toosmall
+            - key: size
+              operator: Exists #esnures atleast key exists, it will not check values
+--------------------------------
+
+#using nodeSelector                
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  containers:
+    - name: my-app
+      image: data-processor
+  nodeSelector:
+    size: Large
+
+#both does same thing
+
+#node affinity inside the Deployment
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      name: blue
+  template:
+    metadata:
+      name: blue
+      labels:
+        name: blue
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: color
+                    operator: In
+                    values:
+                      - blue
